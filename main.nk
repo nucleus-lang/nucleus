@@ -1,10 +1,14 @@
 fn i32 main()
 {
 	@alloca variableName: i32 = 6;
+	@alloca variableTwo: i32 = 8;
+
+	variableName + 8;
+	variableName - 4;
+
+	@verify variableName;
+
+	variableTwo + variableName;
 	
-	variableName + 8 - 4;
-
-	@link(variableName);
-
-	@return variableName;
+	@return @verify variableTwo;
 }

@@ -11,6 +11,7 @@
 struct AST
 {
 	static llvm::Value* CurrInst;
+	static std::string CurrentIdentifier;
 
 	struct Type
 	{
@@ -136,7 +137,6 @@ struct AST
 
 	struct Add : public Expression
 	{
-		std::string Name;
 		std::unique_ptr<Expression> Target;
 		std::unique_ptr<Expression> Value;
 
@@ -147,7 +147,6 @@ struct AST
 
 	struct Sub : public Expression
 	{
-		std::string Name;
 		std::unique_ptr<Expression> Target;
 		std::unique_ptr<Expression> Value;
 
@@ -158,6 +157,7 @@ struct AST
 
 	struct Link : public Expression
 	{
+		llvm::Type* getType = nullptr;
 		std::unique_ptr<Expression> Target;
 		std::unique_ptr<Expression> Value;
 

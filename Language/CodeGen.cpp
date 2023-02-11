@@ -6,7 +6,7 @@ std::unique_ptr<llvm::IRBuilder<>> CodeGen::Builder;
 std::unique_ptr<llvm::Module> CodeGen::TheModule;
 
 std::map<std::string, llvm::AllocaInst*> CodeGen::NamedValues;
-std::map<std::string, llvm::LoadInst*> CodeGen::NamedLoads;
+std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> CodeGen::NamedLoads;
 std::map<std::string, llvm::Value*> CodeGen::CurrentInst;
 
 void CodeGen::Initialize()

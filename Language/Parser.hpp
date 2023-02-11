@@ -26,6 +26,14 @@ struct Parser
   		return ParseBinaryOperator(std::move(LHS));
   	}
 
+  	static std::unique_ptr<AST::Expression> CheckForVerify(std::unique_ptr<AST::Expression> V)
+  	{
+  		if(dynamic_cast<AST::Link*>(V.get()))
+  			return std::make_unique<AST::Load>("autoLoad", nullptr, std::move(V));
+
+  		return V;
+  	}
+
   	static std::unique_ptr<AST::Expression> ParseBinaryOperator(std::unique_ptr<AST::Expression> L)
   	{
   		if(Lexer::CurrentToken == '=')
@@ -33,21 +41,21 @@ struct Parser
   			Lexer::GetNextToken();
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
+  			return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), CheckForVerify(std::move(R))));
   		}
   		else if(Lexer::CurrentToken == '+')
   		{
   			Lexer::GetNextToken();
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Add>(std::move(L), std::move(R)));
+  			return ParseBinaryOperator(std::make_unique<AST::Add>(std::move(L), CheckForVerify(std::move(R))));
   		}
   		else if(Lexer::CurrentToken == '-')
   		{
   			Lexer::GetNextToken();
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), std::move(R)));
+  			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), CheckForVerify(std::move(R))));
   		}
   		else
   			return L;
@@ -111,8 +119,20 @@ struct Parser
 		else if(Lexer::CurrentToken == Token::Link)
 			return ParseLink();
 
+		else if(Lexer::CurrentToken == Token::Verify)
+			return ParseVerify();
+
 		else 
 			return AST::ExprError("unknown token when expecting an expression");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseVerify()
+	{
+		Lexer::GetNextToken();
+
+		auto I = ParseIdentifier();
+
+		return std::make_unique<AST::Link>(std::move(I), nullptr);
 	}
 
 	static std::unique_ptr<AST::Expression> ParseLink()
@@ -127,16 +147,7 @@ struct Parser
 		auto I = ParseIdentifier();
 
 		if(Lexer::CurrentToken != ',')
-		{
-			if(Lexer::CurrentToken == ')')
-			{
-				Lexer::GetNextToken();
-
-				return std::make_unique<AST::Link>(std::move(I), nullptr);
-			}
-			else
-				return AST::ExprError("Expected ',' to separate Add arguments.");
-		}
+			return AST::ExprError("Expected ',' to separate Add arguments.");
 
 		Lexer::GetNextToken();
 
@@ -285,16 +296,16 @@ struct Parser
 
 			auto Ref = ParseIdentifier();
 
-			if(Lexer::CurrentToken != ';')
-  				return AST::ExprError("Expected ';'");
+			//if(Lexer::CurrentToken != ';')
+  			//	return AST::ExprError("Expected ';'");
 
 			return std::make_unique<AST::Return>(std::move(Ref));
 		}
 
 		auto Expr = ParseExpression();
 
-		if(Lexer::CurrentToken != ';')
-  			return AST::ExprError("Expected ';'");
+		//if(Lexer::CurrentToken != ';')
+  		//	return AST::ExprError("Expected ';'");
 
   		auto LoadExpr = std::make_unique<AST::Load>("autoLoad", nullptr, std::move(Expr));
 

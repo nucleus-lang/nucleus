@@ -52,7 +52,7 @@ struct CodeGen
 	static std::unique_ptr<llvm::Module> TheModule;
 
 	static std::map<std::string, llvm::AllocaInst*> NamedValues;
-	static std::map<std::string, llvm::LoadInst*> NamedLoads;
+	static std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> NamedLoads;
 	static std::map<std::string, llvm::Value*> CurrentInst;
 
 	static void Initialize();

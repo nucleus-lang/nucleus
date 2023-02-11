@@ -25,6 +25,7 @@ enum Token
 	Div = -13,
 
 	Link = -14,
+	Verify = -15,
 };
 
 struct Lexer
@@ -136,6 +137,9 @@ struct Lexer
 
         if(IsIdentifier("@link"))
         	return Token::Link;
+
+        if(IsIdentifier("@verify"))
+        	return Token::Verify;
 
         return Token::Identifier;
 	}

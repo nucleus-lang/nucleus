@@ -3,6 +3,7 @@
 
 std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 llvm::Value* AST::CurrInst;
+std::string AST::CurrentIdentifier;
 
 llvm::Value* AST::Expression::codegenOnlyLoad()
 {
@@ -66,6 +67,24 @@ llvm::Value* AST::Number::codegen()
 
 llvm::Value* AST::Return::codegen()
 {
+	if(dynamic_cast<AST::Variable*>(Expr.get()))
+	{
+		auto I = (AST::Load*)Expr.get();
+		if(CodeGen::NamedLoads.find(I->Name) == CodeGen::NamedLoads.end())
+		{
+			llvm::Value* c = Expr->codegen();
+			return CodeGen::Builder->CreateRet(c);
+		}
+
+		if(CodeGen::NamedLoads[I->Name].second == nullptr)
+		{
+			llvm::Value* c = Expr->codegen();
+			return CodeGen::Builder->CreateRet(c);
+		}
+
+		return CodeGen::Builder->CreateRet(CodeGen::NamedLoads[I->Name].second);
+	}
+
 	llvm::Value* c = Expr->codegen();
 	return CodeGen::Builder->CreateRet(c);
 }
@@ -79,8 +98,17 @@ llvm::Value* AST::Load::codegen()
 	if(T == nullptr)
 	{
 		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(c))
-		{
 		     TV = I->getAllocatedType();
+		else if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(c))
+		     TV = I->getPointerOperandType();
+		else if (dynamic_cast<AST::Link*>(Target.get()))
+		{
+			AST::Link* TTarget = (AST::Link*)Target.get();
+
+			if(TTarget->getType != nullptr)
+			{
+				TV = TTarget->getType;
+			}
 		}
 	}
 	else
@@ -91,8 +119,14 @@ llvm::Value* AST::Load::codegen()
 	if(TV == nullptr)
 		CodeGen::Error("Type of Load Instruction was not found.");
 
+	if (dynamic_cast<AST::Link*>(Target.get()))
+	{
+		AST::Link* TTarget = (AST::Link*)Target.get();
+		c = TTarget->Target->codegen();
+	}
+
 	llvm::LoadInst* L = CodeGen::Builder->CreateLoad(TV, c, Name);
-	CodeGen::NamedLoads[Name] = L;
+	CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
 
 	return L;
 }
@@ -111,13 +145,17 @@ llvm::Value* AST::Variable::codegen()
 
 	if (!V) 
 	{ 
-		llvm::LoadInst* V2 = CodeGen::NamedLoads[Name];
+		llvm::LoadInst* V2 = CodeGen::NamedLoads[Name].first;
 
 		if(!V2)
 			CodeGen::Error("Unknown variable name: " + Name + "\n"); 
 
+		CurrentIdentifier = Name;
+
 		return V2;
 	}
+
+	CurrentIdentifier = Name;
 
 	//if(!currentGPState)
 	//	return CodeGen::Builder->CreateLoad(V->getAllocatedType(), V, Name.c_str());
@@ -165,6 +203,15 @@ bool IsIntegerType(llvm::Value* V)
 
 llvm::Value* GetInst(AST::Expression* v)
 {
+	if(dynamic_cast<AST::Number*>(v) != nullptr)
+		return v->codegen();
+
+	if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+	{
+		if(CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
+			AST::CurrInst = CodeGen::NamedLoads[AST::CurrentIdentifier].second;
+	}
+
 	if(AST::CurrInst == nullptr)
 	{
 		llvm::Value* getV = v->codegen();
@@ -188,10 +235,18 @@ llvm::Value* GetInst(AST::Expression* v)
 	return AST::CurrInst;
 }
 
+void AddInst(AST::Expression* v, llvm::Value* r)
+{	
+	if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+	{
+		CodeGen::NamedLoads[AST::CurrentIdentifier].second = r;
+	}
+}
+
 llvm::Value* AST::Add::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
-	llvm::Value* R = Value->codegen();
+	llvm::Value* R = GetInst(Value.get());
 
 	llvm::Value* Result = nullptr;
 
@@ -200,6 +255,7 @@ llvm::Value* AST::Add::codegen()
 	else
 		Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
 
+	AddInst(Target.get(), Result);
 	AST::CurrInst = Result;
 
 	return Result;
@@ -208,7 +264,7 @@ llvm::Value* AST::Add::codegen()
 llvm::Value* AST::Sub::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
-	llvm::Value* R = Value->codegen();
+	llvm::Value* R = GetInst(Value.get());
 
 	llvm::Value* Result = nullptr;
 
@@ -217,6 +273,7 @@ llvm::Value* AST::Sub::codegen()
 	else
 		Result = CodeGen::Builder->CreateFSub(L, R, "subtmp");
 
+	AddInst(Target.get(), Result);
 	AST::CurrInst = Result;
 
 	return Result;
@@ -226,9 +283,19 @@ llvm::Value* AST::Link::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
 
+	getType = L->getType();
+
 	if(Value == nullptr)
 	{
 		llvm::Value* Result = CodeGen::Builder->CreateStore(AST::CurrInst, Target->codegen());
+
+		if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+		{
+			if(CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
+				CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+		}
+
+		AST::CurrentIdentifier = "";
 		AST::CurrInst = nullptr;
 
 		return Result;
