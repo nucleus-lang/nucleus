@@ -126,7 +126,15 @@ llvm::Value* AST::Load::codegen()
 	}
 
 	llvm::LoadInst* L = CodeGen::Builder->CreateLoad(TV, c, Name);
-	CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
+
+	if(CodeGen::NamedLoads.find(Name) != CodeGen::NamedLoads.end())
+	{
+		CodeGen::NamedLoads[AST::CurrentIdentifier].first = L;
+		CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+		AST::CurrInst = nullptr;
+	}
+	else
+		CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
 
 	return L;
 }
@@ -306,6 +314,22 @@ llvm::Value* AST::Link::codegen()
 	AST::CurrInst = nullptr;
 
 	return CodeGen::Builder->CreateStore(L, R);
+}
+
+llvm::Value* AST::VerifyOne::codegen()
+{
+	llvm::Value* Link = CodeGen::Builder->CreateStore(AST::CurrInst, Target->codegen());
+
+	if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+	{
+		if(CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
+			CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+	}
+
+	AST::CurrentIdentifier = "";
+	AST::CurrInst = nullptr;
+
+	return Target->codegen();
 }
 
 llvm::Function* AST::Prototype::codegen()

@@ -29,7 +29,15 @@ struct Parser
   	static std::unique_ptr<AST::Expression> CheckForVerify(std::unique_ptr<AST::Expression> V)
   	{
   		if(dynamic_cast<AST::Link*>(V.get()))
-  			return std::make_unique<AST::Load>("autoLoad", nullptr, std::move(V));
+  		{
+  			std::cout << "Link Instruction Found!\n";
+  			AST::Link* L = (AST::Link*)V.get();
+
+  			if(L->Target == nullptr)
+  			{
+  				return std::make_unique<AST::VerifyOne>(std::move(L->Value));
+  			}
+  		}
 
   		return V;
   	}
@@ -41,21 +49,29 @@ struct Parser
   			Lexer::GetNextToken();
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), CheckForVerify(std::move(R))));
+  			return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
   		}
   		else if(Lexer::CurrentToken == '+')
   		{
   			Lexer::GetNextToken();
-  			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Add>(std::move(L), CheckForVerify(std::move(R))));
+  			if(Lexer::CurrentToken == '=')
+  				Lexer::GetNextToken();
+
+  			auto R = ParseExpression();
+  			
+  			return ParseBinaryOperator(std::make_unique<AST::Add>(std::move(L), std::move(R)));
   		}
   		else if(Lexer::CurrentToken == '-')
   		{
   			Lexer::GetNextToken();
+
+  			if(Lexer::CurrentToken == '=')
+  				Lexer::GetNextToken();
+  			
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), CheckForVerify(std::move(R))));
+  			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), std::move(R)));
   		}
   		else
   			return L;

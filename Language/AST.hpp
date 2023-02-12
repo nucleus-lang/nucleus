@@ -166,6 +166,15 @@ struct AST
 		llvm::Value* codegen() override;
 	};
 
+	struct VerifyOne : public Expression
+	{
+		std::unique_ptr<Expression> Target;
+
+		VerifyOne(std::unique_ptr<Expression> Target) : Target(std::move(Target)) {}
+
+		llvm::Value* codegen() override;
+	};
+
 	struct Prototype 
 	{
 		std::unique_ptr<AST::Type> PType;
