@@ -158,12 +158,12 @@ llvm::Value* AST::Variable::codegen()
 		if(!V2)
 			CodeGen::Error("Unknown variable name: " + Name + "\n"); 
 
-		CurrentIdentifier = Name;
+		AST::CurrentIdentifier = Name;
 
 		return V2;
 	}
 
-	CurrentIdentifier = Name;
+	AST::CurrentIdentifier = Name;
 
 	//if(!currentGPState)
 	//	return CodeGen::Builder->CreateLoad(V->getAllocatedType(), V, Name.c_str());
@@ -209,38 +209,51 @@ bool IsIntegerType(llvm::Value* V)
 		return V->getType()->isIntegerTy();
 }
 
+llvm::Value* CreateAutoLoad(AST::Expression* v)
+{
+	llvm::Value* getV = v->codegen();
+	llvm::Type* TV = nullptr;
+
+	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV))
+	{
+		return I;
+	}
+
+	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV))
+	{
+		TV = I->getAllocatedType();
+	}
+	else
+		TV = getV->getType();
+
+	auto L = CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
+	CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(L, nullptr);
+
+	return L;
+}
+
 llvm::Value* GetInst(AST::Expression* v)
 {
+	llvm::Value* r = v->codegen();
+
 	if(dynamic_cast<AST::Number*>(v) != nullptr)
-		return v->codegen();
+		return r;
 
 	if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 	{
 		if(CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
-			AST::CurrInst = CodeGen::NamedLoads[AST::CurrentIdentifier].second;
-	}
-
-	if(AST::CurrInst == nullptr)
-	{
-		llvm::Value* getV = v->codegen();
-		llvm::Type* TV = nullptr;
-
-		if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV))
 		{
-			return I;
-		}
-
-		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV))
-		{
-			TV = I->getAllocatedType();
+			return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
 		}
 		else
-			TV = getV->getType();
-
-		return CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
+			return CreateAutoLoad(v);
+	}
+	else
+	{
+		return CreateAutoLoad(v);
 	}
 
-	return AST::CurrInst;
+	return nullptr;
 }
 
 void AddInst(AST::Expression* v, llvm::Value* r)
@@ -295,18 +308,13 @@ llvm::Value* AST::Link::codegen()
 
 	if(Value == nullptr)
 	{
-		llvm::Value* Result = CodeGen::Builder->CreateStore(AST::CurrInst, Target->codegen());
-
 		if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 		{
-			if(CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
-				CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+			llvm::Value* Result = CodeGen::Builder->CreateStore(CodeGen::NamedLoads[AST::CurrentIdentifier].second, Target->codegen());
+			CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+
+			return Result;
 		}
-
-		AST::CurrentIdentifier = "";
-		AST::CurrInst = nullptr;
-
-		return Result;
 	}
 
 	llvm::Value* R = Value->codegen();
