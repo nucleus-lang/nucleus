@@ -97,8 +97,6 @@ struct Parser
   		std::string IdName = Lexer::IdentifierStr;
 		
   		Lexer::GetNextToken();  // eat identifier.
-
-  		//std::cout << "Parsed Identifier: " << IdName << "\n";
 		
   		return std::make_unique<AST::Variable>(nullptr, IdName);
   	}

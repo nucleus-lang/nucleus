@@ -7,17 +7,28 @@
 
 int main(int argc, char const *argv[])
 {
-	std::ifstream t("main.nk");
-	std::string str((std::istreambuf_iterator<char>(t)),
-    	             std::istreambuf_iterator<char>());
+	if(argc > 1)
+	{
+		std::string cmd = argv[1];
+		if(cmd == "hello")
+		{
+			std::cout << "Hi! :D\n";
+		}
+	}
+	else
+	{
+		std::ifstream t("main.nk");
+		std::string str((std::istreambuf_iterator<char>(t)),
+    		             std::istreambuf_iterator<char>());
 
-	CodeGen::Initialize();
+		CodeGen::Initialize();
 
-	Lexer::AddContent(str);
+		Lexer::AddContent(str);
 
-	Lexer::Start();
+		Lexer::Start();
 
-	Parser::MainLoop();
-
+		Parser::MainLoop();
+	}
+	
 	return 0;
 }
