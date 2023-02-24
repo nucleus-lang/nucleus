@@ -1,8 +1,10 @@
 fn i32 main()
 {
-	@alloca i: i32 = 2;
+	alloc variable: i32 = 2;
 
-	i += 1;
+	variable += 4;
+	variable += 6;
+	variable += 10;
 
-	@return @verify i;
+	return verify variable;
 }

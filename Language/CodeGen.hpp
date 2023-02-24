@@ -59,6 +59,10 @@ struct CodeGen
 
 	static void Error(std::string str);
 
+	static void Build();
+
+	static void Print();
+
 	static llvm::Function* GetFunction(std::string name);
 };
 

@@ -1,6 +1,10 @@
 #include "CodeGen.hpp"
 #include "AST.hpp"
 
+#ifdef _WIN32
+	#include <Windows.h>
+#endif
+
 std::unique_ptr<llvm::LLVMContext> CodeGen::TheContext;
 std::unique_ptr<llvm::IRBuilder<>> CodeGen::Builder;
 std::unique_ptr<llvm::Module> CodeGen::TheModule;
@@ -27,6 +31,26 @@ void CodeGen::Error(std::string str)
 {
 	std::cout << "Error: " << str << "\n";
 	exit(1);
+}
+
+void CodeGen::Build()
+{
+	std::string clangCmd;
+
+	std::error_code EC;
+	llvm::raw_fd_ostream dest("output.ll", EC, llvm::sys::fs::OF_None);
+
+	TheModule->print(dest, nullptr);
+	clangCmd = "clang++ output.ll -o result";
+
+	std::cout << "Compiling...\n";
+
+	system(clangCmd.c_str());
+}
+
+void CodeGen::Print()
+{
+	TheModule->print(llvm::outs(), nullptr);
 }
 
 llvm::Function* CodeGen::GetFunction(std::string name)

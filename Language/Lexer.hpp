@@ -117,28 +117,28 @@ struct Lexer
         if(IsIdentifier("fn"))
         	return Token::Function;
 
-        if(IsIdentifier("@return"))
+        if(IsIdentifier("return"))
         	return Token::Return;
 
-        if(IsIdentifier("@alloca"))
+        if(IsIdentifier("alloc"))
         	return Token::Alloca;
 
-        if(IsIdentifier("@store"))
+        if(IsIdentifier("store"))
         	return Token::Store;
 
-        if(IsIdentifier("@load"))
+        if(IsIdentifier("load"))
         	return Token::Load;
 
-        if(IsIdentifier("@add"))
+        if(IsIdentifier("add"))
         	return Token::Add;
 
-        if(IsIdentifier("@sub"))
+        if(IsIdentifier("sub"))
         	return Token::Sub;
 
-        if(IsIdentifier("@link"))
+        if(IsIdentifier("link"))
         	return Token::Link;
 
-        if(IsIdentifier("@verify"))
+        if(IsIdentifier("verify"))
         	return Token::Verify;
 
         return Token::Identifier;

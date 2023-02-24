@@ -416,8 +416,6 @@ struct Parser
 		auto Func = ParseFunction();
 
 		llvm::Function* getF = Func->codegen();
-
-		getF->print(llvm::outs(), nullptr);
 	}
 
 	static void MainLoop()

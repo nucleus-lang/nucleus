@@ -5,6 +5,21 @@
 #include "Language/CodeGen.hpp"
 #include <fstream>
 
+void CompileToLLVMIR()
+{
+	std::ifstream t("main.nk");
+	std::string str((std::istreambuf_iterator<char>(t)),
+    	             std::istreambuf_iterator<char>());
+
+	CodeGen::Initialize();
+
+	Lexer::AddContent(str);
+
+	Lexer::Start();
+
+	Parser::MainLoop();
+}
+
 int main(int argc, char const *argv[])
 {
 	if(argc > 1)
@@ -14,20 +29,16 @@ int main(int argc, char const *argv[])
 		{
 			std::cout << "Hi! :D\n";
 		}
-	}
-	else
-	{
-		std::ifstream t("main.nk");
-		std::string str((std::istreambuf_iterator<char>(t)),
-    		             std::istreambuf_iterator<char>());
-
-		CodeGen::Initialize();
-
-		Lexer::AddContent(str);
-
-		Lexer::Start();
-
-		Parser::MainLoop();
+		else if(cmd == "emit")
+		{
+			CompileToLLVMIR();
+			CodeGen::Print();
+		}
+		else if(cmd == "build")
+		{
+			CompileToLLVMIR();
+			CodeGen::Build();
+		}
 	}
 	
 	return 0;
