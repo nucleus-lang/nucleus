@@ -64,8 +64,10 @@ struct Lexer
 
 	static int GetToken()
 	{
-		while (LastChar == ' ' || LastChar == '\n' || LastChar == '\r' || LastChar == '\t') 
+		while (isspace(LastChar))
+		{
 			LastChar = Advance();
+		}
 
 		if(isalpha(LastChar) || LastChar == '@')
 			return GetIdentifier();
@@ -92,9 +94,14 @@ struct Lexer
         int ThisChar = LastChar;
 		LastChar = Advance();
 
-		if(ThisChar < 0)
+		// This is a fail-safe in case memory corruption appears.
+		// Since at this point, we're looking for normal characters,
+		// it makes no sense to find characters that are below space in
+		// the ASCII table. Meaning that if we find one like that at this point,
+		// its undefined behavior.
+		if(ThisChar < 32)
 		{
-		 	ThisChar = 0;
+		 	ThisChar = Token::EndOfFile;
 		}
 
 		return ThisChar;

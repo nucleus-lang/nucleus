@@ -321,9 +321,14 @@ struct Parser
 		//if(Lexer::CurrentToken != ';')
   		//	return AST::ExprError("Expected ';'");
 
-  		auto LoadExpr = std::make_unique<AST::Load>("autoLoad", nullptr, std::move(Expr));
+  		if(dynamic_cast<AST::Variable*>(Expr.get()) || dynamic_cast<AST::Link*>(Expr.get()))
+  		{
+  		  	auto LoadExpr = std::make_unique<AST::Load>("autoLoad", nullptr, std::move(Expr));
 
-		return std::make_unique<AST::Return>(std::move(LoadExpr));
+			return std::make_unique<AST::Return>(std::move(LoadExpr));	
+  		}
+
+		return std::make_unique<AST::Return>(std::move(Expr));
 	}
 
 	static std::unique_ptr<AST::Type> ParseType()
@@ -416,6 +421,8 @@ struct Parser
 		auto Func = ParseFunction();
 
 		llvm::Function* getF = Func->codegen();
+
+		//getF->print(llvm::outs(), nullptr);
 	}
 
 	static void MainLoop()
@@ -425,12 +432,13 @@ struct Parser
 			Lexer::GetNextToken();
 
 			if(Lexer::CurrentToken == Token::EndOfFile)
+			{
 				break;
+			}
 
 			if(Lexer::CurrentToken == Token::Function)
 			{
 				HandleFunction();
-				Lexer::GetNextToken();
 			}
 		}
 	}

@@ -383,7 +383,8 @@ llvm::Function* AST::Function::codegen()
 
 	for(auto const& i: Body)
 	{
-		i->codegen();
+		if(i != nullptr)
+			i->codegen();
 	}
 
 	return TheFunction;

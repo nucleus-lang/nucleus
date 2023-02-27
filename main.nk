@@ -1,10 +1,15 @@
+fn i32 addTwo()
+{
+	return 2;
+}
+
 fn i32 main()
 {
-	alloc variable: i32 = 2;
+	alloc variableName: i32 = 2;
 
-	variable += 4;
-	variable += 6;
-	variable += 10;
+	variableName += 1;
+	
+	load lastVariable: i32 = variableName;
 
-	return verify variable;
+	return verify variableName;
 }

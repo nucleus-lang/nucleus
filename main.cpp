@@ -39,6 +39,11 @@ int main(int argc, char const *argv[])
 			CompileToLLVMIR();
 			CodeGen::Build();
 		}
+		else if(cmd == "run")
+		{
+			CompileToLLVMIR();
+			CodeGen::Run();
+		}
 	}
 	
 	return 0;
