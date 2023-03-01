@@ -7,9 +7,7 @@ fn i32 main()
 {
 	alloc variableName: i32 = 2;
 
-	variableName += 1;
-	
-	load lastVariable: i32 = variableName;
+	variableName += 2;
 
 	return verify variableName;
 }

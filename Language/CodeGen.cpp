@@ -1,5 +1,6 @@
 #include "CodeGen.hpp"
 #include "AST.hpp"
+#include <filesystem>
 
 #ifdef _WIN32
 	#include <Windows.h>
@@ -41,7 +42,7 @@ void CodeGen::Build()
 	llvm::raw_fd_ostream dest("output.ll", EC, llvm::sys::fs::OF_None);
 
 	TheModule->print(dest, nullptr);
-	clangCmd = "clang++ output.ll -o result";
+	clangCmd = "clang++ output.ll -Wno-override-module -o result";
 
 	std::cout << "Compiling...\n";
 
@@ -53,6 +54,62 @@ void CodeGen::Print()
 	std::cout << "Printing...\n";
 	
 	TheModule->print(llvm::outs(), nullptr);
+}
+
+void CodeGen::Run()
+{
+	CodeGen::Build();
+
+	#ifdef _WIN32
+		// additional information
+		STARTUPINFO si;     
+		PROCESS_INFORMATION pi;
+		
+		// set the size of the structures
+		ZeroMemory( &si, sizeof(si) );
+		si.cb = sizeof(si);
+		ZeroMemory( &pi, sizeof(pi) );
+
+		std::string resultPath = std::string(std::filesystem::current_path().string() + "/result.exe");
+		
+		// start the program up
+		auto res = CreateProcess( NULL,   // the path
+		  (LPSTR)resultPath.c_str(),           // Command line
+		  NULL,           // Process handle not inheritable
+		  NULL,           // Thread handle not inheritable
+		  FALSE,          // Set handle inheritance to FALSE
+		  0,              // No creation flags
+		  NULL,           // Use parent's environment block
+		  NULL,           // Use parent's starting directory 
+		  &si,            // Pointer to STARTUPINFO structure
+		  &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+		  );
+		  // Close process and thread handles. 
+		
+		if(!res)
+		{
+			std::cout << "Error: Program can't be executed.\n";
+			exit(1);
+		}
+		else
+		{
+			unsigned long exitCode;
+
+			WaitForSingleObject(
+                pi.hProcess,  
+                INFINITE      // time-out interval in milliseconds  
+                );  
+        	GetExitCodeProcess(pi.hProcess, &exitCode);
+
+        	std::cout << "Your Program Returned: " << (int)exitCode << "\n";
+		}
+
+		CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+
+	#else
+		std::cout << "The 'run' command is not supported in your current OS yet.\n";
+	#endif
 }
 
 llvm::Function* CodeGen::GetFunction(std::string name)

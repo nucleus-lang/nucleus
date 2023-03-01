@@ -1,1 +1,1 @@
-/d/msys64/mingw64/bin/clang++ -g -O3 Language/*.cpp *.cpp `/d/msys64/mingw64/bin/llvm-config --cxxflags --link-static --ldflags --system-libs --libs all` -fstack-protector -lssp -frtti -std=c++20 -static -o nucleus
+/d/msys64/mingw64/bin/clang++ -g -O3 Language/*.cpp Tooling/*.cpp *.cpp `/d/msys64/mingw64/bin/llvm-config --cxxflags --link-static --ldflags --system-libs --libs all` -fstack-protector -lssp -frtti -std=c++20 -static -o nucleus

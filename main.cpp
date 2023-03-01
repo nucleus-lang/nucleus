@@ -3,6 +3,7 @@
 #include "Language/Parser.hpp"
 #include "Language/AST.hpp"
 #include "Language/CodeGen.hpp"
+#include "Tooling/Project.hpp"
 #include <fstream>
 
 void CompileToLLVMIR()
@@ -43,6 +44,14 @@ int main(int argc, char const *argv[])
 		{
 			CompileToLLVMIR();
 			CodeGen::Run();
+		}
+		else if(cmd == "create")
+		{
+			if(argc > 2)
+			{
+				Project::Create(argv[2]);
+			}
+			else { std::cout << "Error: Name not provided!\n"; }
 		}
 	}
 	

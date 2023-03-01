@@ -63,6 +63,8 @@ struct CodeGen
 
 	static void Print();
 
+	static void Run();
+
 	static llvm::Function* GetFunction(std::string name);
 };
 
