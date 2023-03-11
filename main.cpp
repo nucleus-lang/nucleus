@@ -6,6 +6,8 @@
 #include "Tooling/Project.hpp"
 #include <fstream>
 
+std::string Parser::last_identifier;
+
 void CompileToLLVMIR()
 {
 	std::ifstream t("main.nk");

@@ -6,6 +6,8 @@
 
 struct Parser
 {
+	static std::string last_identifier;
+
 	static std::unique_ptr<AST::Expression> ParseNumber() 
 	{
 		auto Result = std::make_unique<AST::Number>(Lexer::NumValString);
@@ -104,6 +106,8 @@ struct Parser
 	{
   		std::string IdName = Lexer::IdentifierStr;
 
+  		Parser::last_identifier = IdName;
+
   		Lexer::check_if_identifier_follows_format(0, 0);
 		
   		Lexer::GetNextToken();  // eat identifier.
@@ -153,6 +157,15 @@ struct Parser
 	static std::unique_ptr<AST::Expression> ParseVerify()
 	{
 		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken == ';')
+		{
+			if(Parser::last_identifier != "")
+			{
+				auto I = std::make_unique<AST::Variable>(nullptr, Parser::last_identifier);
+				return std::make_unique<AST::Link>(std::move(I), nullptr);
+			}
+		}
 
 		auto I = ParseIdentifier();
 
