@@ -112,11 +112,61 @@ struct Lexer
 		return IdentifierStr == s;
 	}
 
+	static bool is_still_identifier(char c) {
+
+		return isalnum(c) || c == '_';
+	}
+
+	static void throw_identifier_syntax_warning(std::string message, std::string recommendation)
+	{
+		std::cout << "\n========================\n";
+		std::cout << "Syntax Warning: " << message << "\n";
+		std::cout << "Recommendation: " << recommendation << "\n";
+		std::cout << "\n";
+	}
+
+	static void check_if_identifier_follows_format(unsigned int casing = 0, unsigned int type = 0)
+	{
+		std::string final_ident_str;
+
+		bool print_message = false;
+
+		for(auto i : IdentifierStr)
+		{
+			if(i < 32)
+				break;
+
+			if(isupper(i) && casing == 0)
+			{
+				print_message = true;
+				final_ident_str += "_";
+				final_ident_str += char(i + 32);
+			}
+			else
+			{
+				final_ident_str += i;
+			}
+		}
+
+		if(print_message)
+		{
+			std::string casing_issue;
+
+			if(casing == 0)
+				casing_issue = "snake_casing";
+
+			throw_identifier_syntax_warning(
+				std::string(std::string("\"") + IdentifierStr + "\" doesn't follow " + casing_issue + "."),
+				std::string("Try replacing \"" + IdentifierStr + "\" with \"" + final_ident_str + "\".")
+				);
+		}
+	}
+
 	static int GetIdentifier()
 	{
 		IdentifierStr = LastChar;
 
-		while (isalnum((LastChar = Advance())))
+		while (is_still_identifier((LastChar = Advance())))
 		{
         	IdentifierStr += LastChar;
 		}

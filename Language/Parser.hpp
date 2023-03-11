@@ -49,7 +49,15 @@ struct Parser
   			Lexer::GetNextToken();
   			auto R = ParseExpression();
 
-  			return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
+  			if(dynamic_cast<AST::Number*>(R.get()) == nullptr)
+  			{
+  				auto RLoad = std::make_unique<AST::Load>("autoLoad", std::make_unique<AST::i32>(), std::move(R));
+  				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(RLoad)));
+  			}
+  			else
+  			{
+  				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
+  			}
   		}
   		else if(Lexer::CurrentToken == '+')
   		{
@@ -95,6 +103,8 @@ struct Parser
 	static std::unique_ptr<AST::Expression> ParseIdentifier() 
 	{
   		std::string IdName = Lexer::IdentifierStr;
+
+  		Lexer::check_if_identifier_follows_format(0, 0);
 		
   		Lexer::GetNextToken();  // eat identifier.
 		
@@ -340,17 +350,13 @@ struct Parser
 
 	static std::unique_ptr<AST::Prototype> ParsePrototype() 
 	{
-		auto PType = ParseType();
-
-		if(!PType)
-			return AST::Prototype::Error("Expected type in prototype");
-
-		Lexer::GetNextToken();
-
 		if (Lexer::CurrentToken != Token::Identifier)
 	    	return AST::Prototype::Error("Expected function name in prototype");
 	
 		std::string FnName = Lexer::IdentifierStr;
+
+		Lexer::check_if_identifier_follows_format(0, 1);
+
 		Lexer::GetNextToken();
 
 		if (Lexer::CurrentToken != '(')
@@ -383,8 +389,19 @@ struct Parser
 		if (Lexer::CurrentToken != ')')
 			return AST::Prototype::Error("Expected ')' in prototype");
 
-		// success.
-		Lexer::GetNextToken();  // eat ')'.
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != ':')
+			return AST::Prototype::Error("Expected ':' in prototype");
+
+		Lexer::GetNextToken();
+
+		auto PType = ParseType();
+
+		if(!PType)
+			return AST::Prototype::Error("Expected type in prototype");
+
+		Lexer::GetNextToken();
 
 		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames));
 	}

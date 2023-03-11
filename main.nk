@@ -1,13 +1,22 @@
-fn i32 addTwo()
+fn add_two(): i32
 {
 	return 2;
 }
 
-fn i32 main()
+fn main(): i32
 {
-	alloc variableName: i32 = 2;
+	alloc variable_name: i32 = 1;
+	
+	load state1: i32 = variable_name;
+	state1 += 1;
 
-	variableName += 2;
+	load state2: i32 = variable_name;
+	state2 += 2;
+	state2 += state1;
 
-	return verify variableName;
+	load state3: i32 = variable_name;
+	state3 += 3;
+	state3 += state2 + state1;
+
+	return load state3;
 }

@@ -50,9 +50,7 @@ void CodeGen::Build()
 }
 
 void CodeGen::Print()
-{
-	std::cout << "Printing...\n";
-	
+{	
 	TheModule->print(llvm::outs(), nullptr);
 }
 

@@ -27,13 +27,13 @@ void Project::CreateMainNk(std::string name)
 {
 	std::string path = name + "/main.nk";
 
-	std::string content = "fn i32 main() {\n";
+	std::string content = "fn main(): i32 {\n";
 	content += "\treturn 0;\n";
 	content += "}\n";
 
 	std::ofstream o(path.c_str());
 
-  	o << content << "\n";
+  	o << content;
 }
 
 void Project::Create(std::string name)
