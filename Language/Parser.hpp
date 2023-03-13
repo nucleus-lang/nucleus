@@ -7,6 +7,8 @@
 struct Parser
 {
 	static std::string last_identifier;
+	static std::string last_target;
+	static bool grab_target;
 
 	static std::unique_ptr<AST::Expression> ParseNumber() 
 	{
@@ -102,11 +104,23 @@ struct Parser
   		return V;
 	}
 
+	static void SetIdentToMainTarget(std::string ident)
+	{
+		if(Parser::grab_target)
+		{
+			Parser::last_target = std::string(ident);
+		}
+	
+		Parser::grab_target = false;
+	}
+
 	static std::unique_ptr<AST::Expression> ParseIdentifier() 
 	{
   		std::string IdName = Lexer::IdentifierStr;
 
   		Parser::last_identifier = IdName;
+
+  		SetIdentToMainTarget(Parser::last_identifier);
 
   		Lexer::check_if_identifier_follows_format(0, 0);
 		
@@ -117,7 +131,7 @@ struct Parser
 
   	static std::unique_ptr<AST::Expression> ParsePrimary() 
   	{
-		if(Lexer::CurrentToken == Token::Identifier) 
+		if(Lexer::CurrentToken == Token::Identifier)
 			return ParseIdentifier();
 
 		else if(Lexer::CurrentToken == Token::Number) 
@@ -160,14 +174,21 @@ struct Parser
 
 		if(Lexer::CurrentToken == ';')
 		{
-			if(Parser::last_identifier != "")
+			if(Parser::last_target != "")
 			{
-				auto I = std::make_unique<AST::Variable>(nullptr, Parser::last_identifier);
+				auto I = std::make_unique<AST::Variable>(nullptr, Parser::last_target);
 				return std::make_unique<AST::Link>(std::move(I), nullptr);
+			}
+			else
+			{
+				AST::ExprError("Last Target is not found!");
 			}
 		}
 
 		auto I = ParseIdentifier();
+
+		if(I == nullptr)
+			return AST::ExprError("Identifier not found!");
 
 		return std::make_unique<AST::Link>(std::move(I), nullptr);
 	}
@@ -381,6 +402,15 @@ struct Parser
 		std::vector<std::unique_ptr<AST::Variable>> ArgNames;
 		while (Lexer::CurrentToken == Token::Identifier || Lexer::CurrentToken == ',')
 		{
+			std::string idName = Lexer::IdentifierStr;
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != ':')
+				return AST::Prototype::Error("Expected ':' to split name and type.");
+
+			Lexer::GetNextToken();
+
 			auto t = ParseType();
 
 			if(t == nullptr)
@@ -388,13 +418,11 @@ struct Parser
 
 			Lexer::GetNextToken();
 
-			auto A = std::make_unique<AST::Variable>(std::move(t), Lexer::IdentifierStr);
-
+			auto A = std::make_unique<AST::Variable>(std::move(t), idName);
 			ArgNames.push_back(std::move(A));
-			Lexer::GetNextToken();
 
 			if(Lexer::CurrentToken != ',')
-				return AST::Prototype::Error("Expected ',' inside prototype");
+				break;
 
 			Lexer::GetNextToken();
 		}
@@ -419,6 +447,12 @@ struct Parser
 		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames));
 	}
 
+	static void ResetTarget()
+	{
+		Parser::grab_target = true;
+  		//Parser::last_target = std::string("");
+	}
+
 	static std::unique_ptr<AST::Function> ParseFunction() 
 	{
   		Lexer::GetNextToken();  // eat def.
@@ -431,13 +465,21 @@ struct Parser
   		Lexer::GetNextToken();
 
   		std::vector<std::unique_ptr<AST::Expression>> Body;
-  		while(Lexer::CurrentToken != '}')
-		{
+  		while(Lexer::CurrentToken != '}') {
+
   			if (auto E = ParseExpression())
+  			{
 				Body.push_back(std::move(E));
+  			}
 
 			if(Lexer::CurrentToken != ';')
+			{
   				AST::ExprError("Expected ';' inside function.");
+			}
+			else
+			{
+				ResetTarget();
+			}
 
   			Lexer::GetNextToken();
 		}

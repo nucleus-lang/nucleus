@@ -7,6 +7,8 @@
 #include <fstream>
 
 std::string Parser::last_identifier;
+std::string Parser::last_target;
+bool Parser::grab_target = true;
 
 void CompileToLLVMIR()
 {

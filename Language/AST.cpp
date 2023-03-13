@@ -216,6 +216,7 @@ llvm::Value* CreateAutoLoad(AST::Expression* v)
 
 	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV))
 	{
+		//CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(I, getV);
 		return I;
 	}
 
@@ -235,6 +236,9 @@ llvm::Value* CreateAutoLoad(AST::Expression* v)
 llvm::Value* GetInst(AST::Expression* v)
 {
 	llvm::Value* r = v->codegen();
+
+	if(r == nullptr)
+		CodeGen::Error("r is nullptr");
 
 	if(dynamic_cast<AST::Number*>(v) != nullptr)
 		return r;
@@ -256,17 +260,23 @@ llvm::Value* GetInst(AST::Expression* v)
 	return nullptr;
 }
 
-void AddInst(AST::Expression* v, llvm::Value* r)
+void AddInst(std::string target_name, llvm::Value* r)
 {	
-	if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+	if(CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end())
 	{
-		CodeGen::NamedLoads[AST::CurrentIdentifier].second = r;
+		CodeGen::NamedLoads[target_name].second = r;
+	}
+	else
+	{
+		CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
 	}
 }
 
 llvm::Value* AST::Add::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
+	std::string target_name = AST::CurrentIdentifier;
+
 	llvm::Value* R = GetInst(Value.get());
 
 	llvm::Value* Result = nullptr;
@@ -276,7 +286,7 @@ llvm::Value* AST::Add::codegen()
 	else
 		Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
 
-	AddInst(Target.get(), Result);
+	AddInst(target_name, Result);
 	AST::CurrInst = Result;
 
 	return Result;
@@ -285,6 +295,8 @@ llvm::Value* AST::Add::codegen()
 llvm::Value* AST::Sub::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
+	std::string target_name = AST::CurrentIdentifier;
+
 	llvm::Value* R = GetInst(Value.get());
 
 	llvm::Value* Result = nullptr;
@@ -294,30 +306,68 @@ llvm::Value* AST::Sub::codegen()
 	else
 		Result = CodeGen::Builder->CreateFSub(L, R, "subtmp");
 
-	AddInst(Target.get(), Result);
+	AddInst(target_name, Result);
 	AST::CurrInst = Result;
 
 	return Result;
+}
+
+std::string GetName(AST::Expression* T)
+{
+	if(dynamic_cast<AST::Variable*>(T))
+	{
+		AST::Variable* V = dynamic_cast<AST::Variable*>(T);
+		return V->Name;
+	}
+
+	return "";
 }
 
 llvm::Value* AST::Link::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
 
+	std::string name = GetName(Target.get());
+
+	if(name == "")
+		CodeGen::Error("Name of Target not found.");
+
+	if(L == nullptr)
+		CodeGen::Error("L is nullptr.");
+
 	getType = L->getType();
+
+	if(getType == nullptr)
+		CodeGen::Error("getType is nullptr.");
 
 	if(Value == nullptr)
 	{
-		if(CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+		if(CodeGen::NamedLoads.find(name) != CodeGen::NamedLoads.end())
 		{
-			llvm::Value* Result = CodeGen::Builder->CreateStore(CodeGen::NamedLoads[AST::CurrentIdentifier].second, Target->codegen());
-			CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+			auto T = Target->codegen();
+
+			if(T == nullptr)
+				CodeGen::Error("T is nullptr.");
+
+			if(CodeGen::NamedLoads[name].second == nullptr)
+				CodeGen::Error("Current Identifier " + name + " is nullptr.");
+
+			llvm::Value* Result = CodeGen::Builder->CreateStore(CodeGen::NamedLoads[name].second, T);
+			CodeGen::NamedLoads[name].second = nullptr;
+
+			if(Result == nullptr)
+				CodeGen::Error("Return is nullptr");
 
 			return Result;
 		}
 	}
 
+	std::cout << "Getting \"R\" value...\n";
+
 	llvm::Value* R = Value->codegen();
+
+	if(R == nullptr)
+		CodeGen::Error("R is nullptr.");
 
 	AST::CurrInst = nullptr;
 

@@ -1,4 +1,4 @@
-fn add_two(): i32
+fn add_two(test: i32): i32
 {
 	return 2;
 }
