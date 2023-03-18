@@ -15,7 +15,7 @@ void CompileToLLVMIR()
 {
 	std::ifstream t("main.nk");
 	std::string str((std::istreambuf_iterator<char>(t)),
-    	             std::istreambuf_iterator<char>());
+  	             std::istreambuf_iterator<char>());
 
 	CodeGen::Initialize();
 

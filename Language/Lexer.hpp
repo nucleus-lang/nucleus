@@ -93,32 +93,25 @@ struct Lexer
 
 	static int GetToken()
 	{
-		while (isspace(LastChar))
+		while (isspace(LastChar)) LastChar = Advance();
+
+		if (isalpha(LastChar) || LastChar == '@') return GetIdentifier();
+
+		if (isdigit(LastChar)) return GetNumber();
+	
+		if (LastChar == '#')
 		{
-			LastChar = Advance();
+			// Comment until end of line.
+			do
+			{
+				LastChar = Advance();
+			}
+			while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
+
+			if (LastChar != EOF) return GetToken();
 		}
 
-		if (isalpha(LastChar) || LastChar == '@')
-			return GetIdentifier();
-
-		if (isdigit(LastChar)) 
-			return GetNumber();
-	
-	  	if (LastChar == '#')
-	  	{
-	  		// Comment until end of line.
-	  		do
-	  		{
-	  			LastChar = Advance();
-	  		}
-	  		while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
-		
-	  		if (LastChar != EOF)
-	  			return GetToken();
-	  	}
-
-	  	if (LastChar == EOF)
-			return Token::EndOfFile;
+		if (LastChar == EOF) return Token::EndOfFile;
 
 		int ThisChar = LastChar;
 		LastChar = Advance();
@@ -128,10 +121,7 @@ struct Lexer
 		// it makes no sense to find characters that are below space in
 		// the ASCII table. Meaning that if we find one like that at this point,
 		// its undefined behavior.
-		if (ThisChar < 32)
-		{
-		 	ThisChar = Token::EndOfFile;
-		}
+		if (ThisChar < 32) ThisChar = Token::EndOfFile;
 
 		return ThisChar;
 	}
@@ -141,8 +131,8 @@ struct Lexer
 		return IdentifierStr == s;
 	}
 
-	static bool is_still_identifier(char c) {
-
+	static bool is_still_identifier(char c)
+	{
 		return isalnum(c) || c == '_';
 	}
 
@@ -159,8 +149,7 @@ struct Lexer
 
 		for (auto i : IdentifierStr)
 		{
-			if (i < 32)
-				break;
+			if (i < 32) break;
 
 			if (isupper(i) && casing == 0)
 			{
@@ -178,37 +167,36 @@ struct Lexer
 		{
 			std::string casing_issue;
 
-			if (casing == 0)
-				casing_issue = "snake_casing";
+			if (casing == 0) casing_issue = "snake_casing";
 
 			throw_identifier_syntax_warning(
 				std::string(std::string("\"") + IdentifierStr + "\" doesn't follow " + casing_issue + "."),
 				std::string("Try replacing \"" + IdentifierStr + "\" with \"" + final_ident_str + "\".")
-				);
+			);
 		}
 	}
 
 	static int GetIdentifier()
 	{
-    IdentifierStr = LastChar;
+		IdentifierStr = LastChar;
 
-    while (is_still_identifier((LastChar = Advance())))
-    {
-      IdentifierStr += LastChar;
-    }
+		while (is_still_identifier((LastChar = Advance())))
+		{
+			IdentifierStr += LastChar;
+		}
 
-    if(IsIdentifier("fn")) return Token::Function;
-    else if(IsIdentifier("return")) return Token::Return;
-    else if(IsIdentifier("alloc")) return Token::Alloca;
-    else if(IsIdentifier("store")) return Token::Store;
-    else if(IsIdentifier("load")) return Token::Load;
-    else if(IsIdentifier("add")) return Token::Add;
-    else if(IsIdentifier("sub")) return Token::Sub;
-    else if(IsIdentifier("link")) return Token::Link;
-    else if(IsIdentifier("verify")) return Token::Verify;
-    else if(IsIdentifier("true")) return Token::True;
-    else if(IsIdentifier("false")) return Token::False;
-    return Token::Identifier;
+		if(IsIdentifier("fn")) return Token::Function;
+		else if(IsIdentifier("return")) return Token::Return;
+		else if(IsIdentifier("alloc")) return Token::Alloca;
+		else if(IsIdentifier("store")) return Token::Store;
+		else if(IsIdentifier("load")) return Token::Load;
+		else if(IsIdentifier("add")) return Token::Add;
+		else if(IsIdentifier("sub")) return Token::Sub;
+		else if(IsIdentifier("link")) return Token::Link;
+		else if(IsIdentifier("verify")) return Token::Verify;
+		else if(IsIdentifier("true")) return Token::True;
+		else if(IsIdentifier("false")) return Token::False;
+		return Token::Identifier;
 	}
 
 	static int GetNumber()

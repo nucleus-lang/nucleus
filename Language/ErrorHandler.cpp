@@ -23,16 +23,13 @@ void ErrorHandler::print(std::string error, int line, int column, std::string li
 
 	for(int i = 0; i < column; i++)
 	{
-		if(line_of_code[i] == '\t')
-			locate_error += "  ";
-		else
-			locate_error += ' ';
+		if(line_of_code[i] == '\t') locate_error += "  ";
+		else locate_error += ' ';
 	}
 
 	std::string add_end = "";
 
-	if(line_of_code.back() != '\n')
-		add_end = "\n";
+	if(line_of_code.back() != '\n') add_end = "\n";
 
 	std::cout << amount_of_spaces << "|\n";
 	std::cout << line_number_as_string << "|" << line_of_code << add_end;
@@ -57,21 +54,17 @@ void ErrorHandler::print_line(std::string error, int line, std::string line_of_c
 
 	std::cout << error_type << " in: " << "main.nk" << " at -> " << line << " >>> \n\n";
 
-	//===============
+	// ===============
 
 	std::string line_number_as_string = std::to_string(line) + " ";
 
 	std::string amount_of_spaces = "";
 
-	for(auto i : line_number_as_string)
-	{
-		amount_of_spaces += ' ';
-	}
+	for(auto i : line_number_as_string) amount_of_spaces += ' ';
 
 	std::string add_end = "";
 
-	if(line_of_code.back() != '\n')
-		add_end = "\n";
+	if(line_of_code.back() != '\n') add_end = "\n";
 
 	std::cout << amount_of_spaces << "|\n";
 	std::cout << line_number_as_string << "|" << line_of_code << add_end;
