@@ -3,15 +3,37 @@
 
 #include "Lexer.hpp"
 #include "AST.hpp"
+#include "ErrorHandler.hpp"
+#include "StaticAnalyzer.hpp"
+#include <unordered_map>
 
 struct Parser
 {
 	static std::string last_identifier;
 	static std::string last_target;
 	static bool grab_target;
+	static std::unordered_map<std::string, std::string> all_variables;
+
+	static void add_to_variables_list(std::string name, std::string type)
+	{
+		all_variables[name] = type;
+	}
+
+	static std::string get_type_from_variable(std::string name)
+	{
+		if(all_variables.find(name) == all_variables.end())
+			return "";
+
+		return all_variables[name];
+	}
 
 	static std::unique_ptr<AST::Expression> ParseNumber() 
 	{
+		std::string type_result = get_type_from_variable(Parser::last_target);
+
+		if(type_result == "i1" || type_result == "bool")
+  			return AST::ExprError("Cannot assign a number value to a boolean type variable.");
+
 		auto Result = std::make_unique<AST::Number>(Lexer::NumValString);
 	
 		Lexer::GetNextToken();
@@ -25,9 +47,28 @@ struct Parser
   		if (!LHS)
   		  return nullptr;
 
-  		//Lexer::GetNextToken();
-
   		return ParseBinaryOperator(std::move(LHS));
+  	}
+
+  	static std::unique_ptr<AST::Expression> ParseBoolValue(bool is_true)
+  	{
+  		std::unique_ptr<AST::Number> Result = nullptr;
+
+  		std::string type_result = get_type_from_variable(Parser::last_target);
+
+  		if(type_result != "i1" || type_result != "bool")
+  			return AST::ExprError("Cannot assign a boolean value to a number type variable.");
+
+  		if(is_true)
+  			Result = std::make_unique<AST::Number>("1");
+  		else
+  			Result = std::make_unique<AST::Number>("0");
+
+  		Result->bit = 1;
+
+  		Lexer::GetNextToken();
+
+  		return Result;
   	}
 
   	static std::unique_ptr<AST::Expression> CheckForVerify(std::unique_ptr<AST::Expression> V)
@@ -60,6 +101,14 @@ struct Parser
   			}
   			else
   			{
+  				//auto get_r = dynamic_cast<AST::Number*>(R.get());
+//
+  				//int32_t r_i32;
+  				//if(get_r->isInt)
+  				//	r_i32 = get_r->return_i32();
+//
+  				//StaticAnalyzer::new_static_i32(Parser::last_target, r_i32);
+
   				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
   			}
   		}
@@ -71,6 +120,17 @@ struct Parser
   				Lexer::GetNextToken();
 
   			auto R = ParseExpression();
+
+  			//if(dynamic_cast<AST::Number*>(R.get()))
+  			//{
+  			//	auto get_r = dynamic_cast<AST::Number*>(R.get());
+//
+  			//	int32_t r_i32;
+  			//	if(get_r->isInt)
+  			//		r_i32 = get_r->return_i32();
+//
+  			//	StaticAnalyzer::add_static_i32(Parser::last_target, r_i32);
+  			//}
   			
   			return ParseBinaryOperator(std::make_unique<AST::Add>(std::move(L), std::move(R)));
   		}
@@ -83,10 +143,27 @@ struct Parser
   			
   			auto R = ParseExpression();
 
+  			//if(dynamic_cast<AST::Number*>(R.get()))
+  			//{
+  			//	auto get_r = dynamic_cast<AST::Number*>(R.get());
+//
+  			//	int32_t r_i32;
+  			//	if(get_r->isInt)
+  			//		r_i32 = get_r->return_i32();
+//
+  			//	StaticAnalyzer::sub_static_i32(Parser::last_target, r_i32);
+  			//}
+
   			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), std::move(R)));
   		}
+  		else if(Lexer::CurrentToken != ';')
+  		{
+  			return AST::ExprError("Expected an operator (=, +, -, * or /).");
+  		}
   		else
+  		{
   			return L;
+  		}
   	}
 
 	static std::unique_ptr<AST::Expression> ParseParenthesis() 
@@ -163,6 +240,12 @@ struct Parser
 
 		else if(Lexer::CurrentToken == Token::Verify)
 			return ParseVerify();
+
+		else if(Lexer::CurrentToken == Token::True)
+			return ParseBoolValue(true);
+
+		else if(Lexer::CurrentToken == Token::False)
+			return ParseBoolValue(false);
 
 		else 
 			return AST::ExprError("unknown token when expecting an expression");
@@ -330,6 +413,8 @@ struct Parser
 
 		std::string Name = Lexer::IdentifierStr;
 
+		SetIdentToMainTarget(Name);
+
 		Lexer::GetNextToken();
 
 		if(Lexer::CurrentToken != ':')
@@ -338,6 +423,8 @@ struct Parser
 		Lexer::GetNextToken();
 
 		auto T = ParseType();
+
+		add_to_variables_list(Name, Lexer::IdentifierStr);
 
 		Lexer::GetNextToken();
 
@@ -377,7 +464,9 @@ struct Parser
 
 	static std::unique_ptr<AST::Type> ParseType()
 	{
-		if(Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
+		if(Lexer::IdentifierStr == "i1" || 
+		   Lexer::IdentifierStr == "bool") { return std::make_unique<AST::i1>(); }
+		else if(Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
 
 		return nullptr;
 	}
@@ -415,6 +504,8 @@ struct Parser
 
 			if(t == nullptr)
 				return AST::Prototype::Error("Unknown type found in arguments.");
+
+			add_to_variables_list(idName, Lexer::IdentifierStr);
 
 			Lexer::GetNextToken();
 
@@ -455,6 +546,8 @@ struct Parser
 
 	static std::unique_ptr<AST::Function> ParseFunction() 
 	{
+		all_variables.clear();
+
   		Lexer::GetNextToken();  // eat def.
   		auto Proto = ParsePrototype();
   		if (!Proto) { return nullptr; }

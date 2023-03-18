@@ -1,18 +1,6 @@
-fn add_two(test: i32): i32
+fn main(): bool
 {
-	return 2;
-}
+	alloc boolean: i32 = true;
 
-fn main(): i32
-{
-	alloc variable_name: i32 = 1;
-	alloc variable_two: i32 = 2;
-	
-	variable_name += 3;
-	variable_name += 3;
-	variable_name += 3; verify;
-
-	variable_two += variable_name; verify;
-
-	return variable_two;
+	return boolean;
 }

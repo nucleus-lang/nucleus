@@ -3,6 +3,8 @@
 
 #include <string>
 #include <iostream>
+#include <vector>
+#include "ErrorHandler.hpp"
 
 enum Token
 {
@@ -26,6 +28,9 @@ enum Token
 
 	Link = -14,
 	Verify = -15,
+
+	True = -16,
+	False = -17,
 };
 
 struct Lexer
@@ -43,15 +48,39 @@ struct Lexer
 	static int CurrentToken;
 	static int Position;
 
+	static int Line;
+	static int Column;
+
+	static std::string line_as_string;
+
+	static std::vector<std::string> all_lines_vector;
+
 	static void Start()
 	{
 		Position = -1;
+		Line = 1;
+		Column = 1;
 		LastChar = ' ';
 	}
 
 	static int Advance()
 	{
 		Position += 1;
+
+		Column += 1;
+
+		line_as_string += Content[Position];
+
+		if(Content[Position] == '\n')
+		{
+			Line += 1;
+			Column = 1;
+
+			all_lines_vector.push_back(line_as_string);
+
+			line_as_string.clear();
+		}
+
 		return Content[Position];
 	}
 
@@ -119,10 +148,7 @@ struct Lexer
 
 	static void throw_identifier_syntax_warning(std::string message, std::string recommendation)
 	{
-		std::cout << "\n========================\n";
-		std::cout << "Syntax Warning: " << message << "\n";
-		std::cout << "Recommendation: " << recommendation << "\n";
-		std::cout << "\n";
+		ErrorHandler::print(message, Lexer::Line, Lexer::Column, Lexer::line_as_string, 1, recommendation);
 	}
 
 	static void check_if_identifier_follows_format(unsigned int casing = 0, unsigned int type = 0)
@@ -197,6 +223,12 @@ struct Lexer
 
         if(IsIdentifier("verify"))
         	return Token::Verify;
+
+        if(IsIdentifier("true"))
+        	return Token::True;
+
+        if(IsIdentifier("false"))
+        	return Token::False;
 
         return Token::Identifier;
 	}
