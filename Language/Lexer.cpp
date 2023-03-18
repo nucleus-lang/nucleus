@@ -1,17 +1,13 @@
 #include "Lexer.hpp"
 
 std::string Lexer::Content;
-
-std::string Lexer::IdentifierStr;
 std::string Lexer::NumValString;
-int Lexer::CurrentToken;
-int Lexer::Position;
+std::string Lexer::IdentifierStr;
 
-int Lexer::Column;
 int Lexer::Line;
+int Lexer::Column;
+int Lexer::LastChar;
 
 std::string Lexer::line_as_string;
 
 std::vector<std::string> Lexer::all_lines_vector;
-
-int Lexer::LastChar;

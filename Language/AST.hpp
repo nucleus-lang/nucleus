@@ -54,7 +54,7 @@ struct AST
 		Number(std::string val) 
 		{
 			//std::cout << "Number Input: " << val << "\n";
-			if(val.find(".") != std::string::npos) {
+			if (val.find(".") != std::string::npos) {
 				isFloat = val.back() == 'f';
 				isDouble = !isFloat;
 
