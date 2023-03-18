@@ -98,9 +98,9 @@ llvm::Value* AST::Load::codegen()
 	if (T == nullptr)
 	{
 		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(c))
-		     TV = I->getAllocatedType();
+			 TV = I->getAllocatedType();
 		else if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(c))
-		     TV = I->getPointerOperandType();
+			 TV = I->getPointerOperandType();
 		else if (dynamic_cast<AST::Link*>(Target.get()))
 		{
 			AST::Link* TTarget = (AST::Link*)Target.get();
@@ -281,10 +281,8 @@ llvm::Value* AST::Add::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	if (IsIntegerType(L) && IsIntegerType(R))
-		Result = CodeGen::Builder->CreateAdd(L, R, "addtmp");
-	else
-		Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
+	if (IsIntegerType(L) && IsIntegerType(R)) Result = CodeGen::Builder->CreateAdd(L, R, "addtmp");
+	else Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
 
 	AddInst(target_name, Result);
 	AST::CurrInst = Result;
@@ -301,10 +299,8 @@ llvm::Value* AST::Sub::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	if (IsIntegerType(L) && IsIntegerType(R))
-		Result = CodeGen::Builder->CreateSub(L, R, "subtmp");
-	else
-		Result = CodeGen::Builder->CreateFSub(L, R, "subtmp");
+	if (IsIntegerType(L) && IsIntegerType(R)) Result = CodeGen::Builder->CreateSub(L, R, "subtmp");
+	else Result = CodeGen::Builder->CreateFSub(L, R, "subtmp");
 
 	AddInst(target_name, Result);
 	AST::CurrInst = Result;
@@ -329,11 +325,9 @@ llvm::Value* AST::Link::codegen()
 
 	std::string name = GetName(Target.get());
 
-	if (name == "")
-		CodeGen::Error("Name of Target not found.");
+	if (name == "") CodeGen::Error("Name of Target not found.");
 
-	if (L == nullptr)
-		CodeGen::Error("L is nullptr.");
+	if (L == nullptr) CodeGen::Error("L is nullptr.");
 
 	getType = L->getType();
 
@@ -346,17 +340,14 @@ llvm::Value* AST::Link::codegen()
 		{
 			auto T = Target->codegen();
 
-			if (T == nullptr)
-				CodeGen::Error("T is nullptr.");
+			if (T == nullptr) CodeGen::Error("T is nullptr.");
 
-			if (CodeGen::NamedLoads[name].second == nullptr)
-				CodeGen::Error("Current Identifier " + name + " is nullptr.");
+			if (CodeGen::NamedLoads[name].second == nullptr) CodeGen::Error("Current Identifier " + name + " is nullptr.");
 
 			llvm::Value* Result = CodeGen::Builder->CreateStore(CodeGen::NamedLoads[name].second, T);
 			CodeGen::NamedLoads[name].second = nullptr;
 
-			if (Result == nullptr)
-				CodeGen::Error("Return is nullptr");
+			if (Result == nullptr) CodeGen::Error("Return is nullptr");
 
 			return Result;
 		}
@@ -366,8 +357,7 @@ llvm::Value* AST::Link::codegen()
 
 	llvm::Value* R = Value->codegen();
 
-	if (R == nullptr)
-		CodeGen::Error("R is nullptr.");
+	if (R == nullptr) CodeGen::Error("R is nullptr.");
 
 	AST::CurrInst = nullptr;
 
@@ -380,8 +370,7 @@ llvm::Value* AST::VerifyOne::codegen()
 
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 	{
-		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
-			CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
+		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr) CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
 	}
 
 	AST::CurrentIdentifier = "";
@@ -406,10 +395,9 @@ llvm::Function* AST::Prototype::codegen()
 	unsigned Idx = 0;
 	for (auto &Arg : F->args()) 
 	{
-		if (Args[Idx] == nullptr)
-			CodeGen::Error("One of the Arguments is nullptr.");
+		if (Args[Idx] == nullptr) CodeGen::Error("One of the Arguments is nullptr.");
 
-  		Arg.setName(Args[Idx++]->Name);
+		Arg.setName(Args[Idx++]->Name);
 	}
 
 	return F;
