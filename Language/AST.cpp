@@ -25,8 +25,8 @@ std::unique_ptr<AST::Expression> AST::ExprError(std::string str)
 {
 	std::string found_what = "";
 
-	if(Lexer::CurrentToken == Token::Number) found_what = "Found Number: " + Lexer::NumValString + "\n";
-	else if(Lexer::CurrentToken != Token::Identifier) found_what = "Found Token: " + std::to_string(Lexer::CurrentToken) + "\n";
+	if (Lexer::CurrentToken == Token::Number) found_what = "Found Number: " + Lexer::NumValString + "\n";
+	else if (Lexer::CurrentToken != Token::Identifier) found_what = "Found Token: " + std::to_string(Lexer::CurrentToken) + "\n";
 	else found_what = "Found Identifier: " + Lexer::IdentifierStr + "\n";
 
 	std::string final_error = str + " " + found_what;

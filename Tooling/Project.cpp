@@ -20,7 +20,7 @@ void Project::CreateTOML(std::string name)
 
 	std::ofstream o(path.c_str());
 
-  	o << content << "\n";
+	o << content << "\n";
 }
 
 void Project::CreateMainNk(std::string name)
@@ -33,7 +33,7 @@ void Project::CreateMainNk(std::string name)
 
 	std::ofstream o(path.c_str());
 
-  	o << content;
+	o << content;
 }
 
 void Project::Create(std::string name)

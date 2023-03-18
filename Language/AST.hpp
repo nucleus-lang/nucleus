@@ -82,10 +82,10 @@ struct AST
 		std::vector<std::unique_ptr<Expression>> Args;
 
 		Call(const std::string &Callee,
-              std::vector<std::unique_ptr<AST::Expression>> Args)
-    	: Callee(Callee), Args(std::move(Args)) {}
+			  std::vector<std::unique_ptr<AST::Expression>> Args)
+		: Callee(Callee), Args(std::move(Args)) {}
 
-    	llvm::Value* codegen() override;
+		llvm::Value* codegen() override;
 	};
 
 	struct Variable : public Expression
@@ -210,10 +210,10 @@ struct AST
 		std::vector<std::unique_ptr<Expression>> Body;
 
 		Function(std::unique_ptr<Prototype> Proto,
-            std::vector<std::unique_ptr<Expression>> Body)
-    	: Proto(std::move(Proto)), Body(std::move(Body)) {}
+			std::vector<std::unique_ptr<Expression>> Body)
+		: Proto(std::move(Proto)), Body(std::move(Body)) {}
 
-    	llvm::Function* codegen();
+		llvm::Function* codegen();
 	};
 };
 
