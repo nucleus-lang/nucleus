@@ -21,7 +21,7 @@ struct Parser
 
 	static std::string get_type_from_variable(std::string name)
 	{
-		if(all_variables.find(name) == all_variables.end()) return "";
+		if (all_variables.find(name) == all_variables.end()) return "";
 
 		return all_variables[name];
 	}
@@ -30,7 +30,7 @@ struct Parser
 	{
 		std::string type_result = get_type_from_variable(Parser::last_target);
 
-		if(type_result == "i1" || type_result == "bool")
+		if (type_result == "i1" || type_result == "bool")
 			return AST::ExprError("Cannot assign a number value to a boolean type variable.");
 
 		auto Result = std::make_unique<AST::Number>(Lexer::NumValString);
@@ -54,10 +54,10 @@ struct Parser
 
 		std::string type_result = get_type_from_variable(Parser::last_target);
 
-		if(type_result != "i1" || type_result != "bool")
+		if (type_result != "i1" || type_result != "bool")
 			return AST::ExprError("Cannot assign a boolean value to a number type variable.");
 
-		if(is_true) Result = std::make_unique<AST::Number>("1");
+		if (is_true) Result = std::make_unique<AST::Number>("1");
 		else Result = std::make_unique<AST::Number>("0");
 
 		Result->bit = 1;
@@ -96,7 +96,7 @@ struct Parser
 			{
 				// auto get_r = dynamic_cast<AST::Number*>(R.get());
 				// int32_t r_i32;
-				// if(get_r->isInt) r_i32 = get_r->return_i32();
+				// if (get_r->isInt) r_i32 = get_r->return_i32();
 				// StaticAnalyzer::new_static_i32(Parser::last_target, r_i32);
 
 				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
@@ -110,12 +110,12 @@ struct Parser
 
 			auto R = ParseExpression();
 
-			// if(dynamic_cast<AST::Number*>(R.get()))
+			// if (dynamic_cast<AST::Number*>(R.get()))
 			// {
 			// 	auto get_r = dynamic_cast<AST::Number*>(R.get());
 
 			// 	int32_t r_i32;
-			// 	if(get_r->isInt) r_i32 = get_r->return_i32();
+			// 	if (get_r->isInt) r_i32 = get_r->return_i32();
 
 			// 	StaticAnalyzer::add_static_i32(Parser::last_target, r_i32);
 			// }
@@ -130,19 +130,19 @@ struct Parser
 
 			auto R = ParseExpression();
 
-			// if(dynamic_cast<AST::Number*>(R.get()))
+			// if (dynamic_cast<AST::Number*>(R.get()))
 			// {
 			// 	auto get_r = dynamic_cast<AST::Number*>(R.get());
 
 			// 	int32_t r_i32;
-			// 	if(get_r->isInt) r_i32 = get_r->return_i32();
+			// 	if (get_r->isInt) r_i32 = get_r->return_i32();
 
 			// 	StaticAnalyzer::sub_static_i32(Parser::last_target, r_i32);
 			// }
 
 			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), std::move(R)));
 		}
-		else if(Lexer::CurrentToken != ';')
+		else if (Lexer::CurrentToken != ';')
 		{
 			return AST::ExprError("Expected an operator (=, +, -, * or /).");
 		}
@@ -200,8 +200,8 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::Sub) return ParseSub();
 		else if (Lexer::CurrentToken == Token::Link) return ParseLink();
 		else if (Lexer::CurrentToken == Token::Verify) return ParseVerify();
-		else if(Lexer::CurrentToken == Token::True) return ParseBoolValue(true);
-		else if(Lexer::CurrentToken == Token::False) return ParseBoolValue(false);
+		else if (Lexer::CurrentToken == Token::True) return ParseBoolValue(true);
+		else if (Lexer::CurrentToken == Token::False) return ParseBoolValue(false);
 		else  return AST::ExprError("unknown token when expecting an expression");
 	}
 
@@ -401,8 +401,8 @@ struct Parser
 
 	static std::unique_ptr<AST::Type> ParseType()
 	{
-		if(Lexer::IdentifierStr == "i1" || Lexer::IdentifierStr == "bool") { return std::make_unique<AST::i1>(); }
-		else if(Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
+		if (Lexer::IdentifierStr == "i1" || Lexer::IdentifierStr == "bool") { return std::make_unique<AST::i1>(); }
+		else if (Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
 		return nullptr;
 	}
 

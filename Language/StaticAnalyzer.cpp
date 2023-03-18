@@ -26,7 +26,7 @@ void StaticAnalyzer::check_static_i32(int32_t a, int32_t b)
 
 void StaticAnalyzer::add_static_i32(std::string name, int32_t value)
 {
-	if(all_static_i32.find(name) == all_static_i32.end())
+	if (all_static_i32.find(name) == all_static_i32.end())
 		return;
 
 	int32_t last_value = all_static_i32[name];
@@ -40,7 +40,7 @@ void StaticAnalyzer::add_static_i32(std::string name, int32_t value)
 
 void StaticAnalyzer::sub_static_i32(std::string name, int32_t value)
 {
-	if(all_static_i32.find(name) == all_static_i32.end())
+	if (all_static_i32.find(name) == all_static_i32.end())
 		return;
 
 	int32_t last_value = all_static_i32[name];

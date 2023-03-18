@@ -71,7 +71,7 @@ struct Lexer
 
 		line_as_string += Content[Position];
 
-		if(Content[Position] == '\n')
+		if (Content[Position] == '\n')
 		{
 			Line += 1;
 			Column = 1;
@@ -185,17 +185,17 @@ struct Lexer
 			IdentifierStr += LastChar;
 		}
 
-		if(IsIdentifier("fn")) return Token::Function;
-		else if(IsIdentifier("return")) return Token::Return;
-		else if(IsIdentifier("alloc")) return Token::Alloca;
-		else if(IsIdentifier("store")) return Token::Store;
-		else if(IsIdentifier("load")) return Token::Load;
-		else if(IsIdentifier("add")) return Token::Add;
-		else if(IsIdentifier("sub")) return Token::Sub;
-		else if(IsIdentifier("link")) return Token::Link;
-		else if(IsIdentifier("verify")) return Token::Verify;
-		else if(IsIdentifier("true")) return Token::True;
-		else if(IsIdentifier("false")) return Token::False;
+		if (IsIdentifier("fn")) return Token::Function;
+		else if (IsIdentifier("return")) return Token::Return;
+		else if (IsIdentifier("alloc")) return Token::Alloca;
+		else if (IsIdentifier("store")) return Token::Store;
+		else if (IsIdentifier("load")) return Token::Load;
+		else if (IsIdentifier("add")) return Token::Add;
+		else if (IsIdentifier("sub")) return Token::Sub;
+		else if (IsIdentifier("link")) return Token::Link;
+		else if (IsIdentifier("verify")) return Token::Verify;
+		else if (IsIdentifier("true")) return Token::True;
+		else if (IsIdentifier("false")) return Token::False;
 		return Token::Identifier;
 	}
 
