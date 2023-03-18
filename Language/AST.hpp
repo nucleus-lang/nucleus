@@ -37,6 +37,7 @@ struct AST
 		virtual llvm::Value* codegen() = 0;
 	};
 
+	NEW_TYPE(i1);
 	NEW_TYPE(i32);
 
 	static std::unique_ptr<Expression> ExprError(std::string str);
@@ -65,6 +66,11 @@ struct AST
 			}
 
 			valueAsString = val;
+		}
+
+		int32_t return_i32()
+		{
+			return intValue;
 		}
 
 		llvm::Value* codegen() override;

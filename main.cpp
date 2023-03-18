@@ -9,6 +9,7 @@
 std::string Parser::last_identifier;
 std::string Parser::last_target;
 bool Parser::grab_target = true;
+std::unordered_map<std::string, std::string> Parser::all_variables;
 
 void CompileToLLVMIR()
 {

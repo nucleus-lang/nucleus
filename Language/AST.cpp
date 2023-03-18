@@ -1,5 +1,6 @@
 #include "AST.hpp"
 #include "Lexer.hpp"
+#include "ErrorHandler.hpp"
 
 llvm::Value* AST::CurrInst;
 
@@ -22,11 +23,15 @@ void AST::Expression::GetPointer()
 
 std::unique_ptr<AST::Expression> AST::ExprError(std::string str)
 {
-	std::cout << "Error: " << str << "\n";
-	std::cout << "========\n";
+	std::string found_what = "";
 
-	if (Lexer::CurrentToken != Token::Identifier) std::cout << "Found Token: " << Lexer::CurrentToken << "\n";
-	else std::cout << "Found Identifier: " << Lexer::IdentifierStr << "\n";
+	if(Lexer::CurrentToken == Token::Number) found_what = "Found Number: " + Lexer::NumValString + "\n";
+	else if(Lexer::CurrentToken != Token::Identifier) found_what = "Found Token: " + std::to_string(Lexer::CurrentToken) + "\n";
+	else found_what = "Found Identifier: " + Lexer::IdentifierStr + "\n";
+
+	std::string final_error = str + " " + found_what;
+
+	ErrorHandler::print(final_error, Lexer::Line, Lexer::Column, Lexer::line_as_string, 0);
 	
 	exit(1);
 	return nullptr;
@@ -125,6 +130,11 @@ llvm::Value* AST::Load::codegen()
 	else CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
 
 	return L;
+}
+
+llvm::Type* AST::i1::codegen()
+{
+	return llvm::Type::getInt1Ty(*CodeGen::TheContext);
 }
 
 llvm::Type* AST::i32::codegen()
