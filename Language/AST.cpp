@@ -1,9 +1,10 @@
 #include "AST.hpp"
 #include "Lexer.hpp"
 
-std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 llvm::Value* AST::CurrInst;
+
 std::string AST::CurrentIdentifier;
+std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 
 llvm::Value* AST::Expression::codegenOnlyLoad()
 {
@@ -24,14 +25,8 @@ std::unique_ptr<AST::Expression> AST::ExprError(std::string str)
 	std::cout << "Error: " << str << "\n";
 	std::cout << "========\n";
 
-	if (Lexer::CurrentToken != Token::Identifier)
-	{
-		std::cout << "Found Token: " << Lexer::CurrentToken << "\n";
-	}
-	else
-	{
-		std::cout << "Found Identifier: " << Lexer::IdentifierStr << "\n";
-	}
+	if (Lexer::CurrentToken != Token::Identifier) std::cout << "Found Token: " << Lexer::CurrentToken << "\n";
+	else std::cout << "Found Identifier: " << Lexer::IdentifierStr << "\n";
 	
 	exit(1);
 	return nullptr;
@@ -97,18 +92,13 @@ llvm::Value* AST::Load::codegen()
 
 	if (T == nullptr)
 	{
-		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(c))
-			 TV = I->getAllocatedType();
-		else if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(c))
-			 TV = I->getPointerOperandType();
+		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(c)) TV = I->getAllocatedType();
+		else if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(c)) TV = I->getPointerOperandType();
 		else if (dynamic_cast<AST::Link*>(Target.get()))
 		{
 			AST::Link* TTarget = (AST::Link*)Target.get();
 
-			if (TTarget->getType != nullptr)
-			{
-				TV = TTarget->getType;
-			}
+			if (TTarget->getType != nullptr) TV = TTarget->getType;
 		}
 	}
 	else
@@ -116,8 +106,7 @@ llvm::Value* AST::Load::codegen()
 		TV = T->codegen();
 	}
 
-	if (TV == nullptr)
-		CodeGen::Error("Type of Load Instruction was not found.");
+	if (TV == nullptr) CodeGen::Error("Type of Load Instruction was not found.");
 
 	if (dynamic_cast<AST::Link*>(Target.get()))
 	{
@@ -133,8 +122,7 @@ llvm::Value* AST::Load::codegen()
 		CodeGen::NamedLoads[AST::CurrentIdentifier].second = nullptr;
 		AST::CurrInst = nullptr;
 	}
-	else
-		CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
+	else CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
 
 	return L;
 }
@@ -155,8 +143,7 @@ llvm::Value* AST::Variable::codegen()
 	{ 
 		llvm::LoadInst* V2 = CodeGen::NamedLoads[Name].first;
 
-		if (!V2)
-			CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+		if (!V2) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
 
 		AST::CurrentIdentifier = Name;
 
@@ -165,12 +152,11 @@ llvm::Value* AST::Variable::codegen()
 
 	AST::CurrentIdentifier = Name;
 
-	//if (!currentGPState)
-	//	return CodeGen::Builder->CreateLoad(V->getAllocatedType(), V, Name.c_str());
-	//else
-	//	return CodeGen::Builder->CreateLoad(V->getAllocatedType()->getPointerTo(), V, Name.c_str());
-
-	//return nullptr;
+	// if (!currentGPState)
+	// 	return CodeGen::Builder->CreateLoad(V->getAllocatedType(), V, Name.c_str());
+	// else
+	// 	return CodeGen::Builder->CreateLoad(V->getAllocatedType()->getPointerTo(), V, Name.c_str());
+	// return nullptr;
 
 	return V;
 }
@@ -187,8 +173,8 @@ llvm::Value* AST::Alloca::codegen()
 	OldBindings.push_back(CodeGen::NamedValues[VarName]);
 	CodeGen::NamedValues[VarName] = Alloca;
 
-	//for (unsigned i = 0, e = VarNames.size(); i != e; ++i)
-		//CodeGen::NamedValues[VarName] = OldBindings[0];
+	// for (unsigned i = 0, e = VarNames.size(); i != e; ++i)
+	// 	CodeGen::NamedValues[VarName] = OldBindings[0];
 
 	return Alloca;
 }
@@ -201,12 +187,8 @@ llvm::Value* AST::Store::codegen()
 
 bool IsIntegerType(llvm::Value* V)
 {
-	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(V))
-	{
-		return I->getAllocatedType()->isIntegerTy();
-	}
-	else
-		return V->getType()->isIntegerTy();
+	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(V)) return I->getAllocatedType()->isIntegerTy();
+	else return V->getType()->isIntegerTy();
 }
 
 llvm::Value* CreateAutoLoad(AST::Expression* v)
@@ -214,18 +196,10 @@ llvm::Value* CreateAutoLoad(AST::Expression* v)
 	llvm::Value* getV = v->codegen();
 	llvm::Type* TV = nullptr;
 
-	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV))
-	{
-		//CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(I, getV);
-		return I;
-	}
+	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV)) return I;
 
-	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV))
-	{
-		TV = I->getAllocatedType();
-	}
-	else
-		TV = getV->getType();
+	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
+	else TV = getV->getType();
 
 	auto L = CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
 	CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(L, nullptr);
@@ -237,39 +211,24 @@ llvm::Value* GetInst(AST::Expression* v)
 {
 	llvm::Value* r = v->codegen();
 
-	if (r == nullptr)
-		CodeGen::Error("r is nullptr");
+	if (r == nullptr) CodeGen::Error("r is nullptr");
 
-	if (dynamic_cast<AST::Number*>(v) != nullptr)
-		return r;
+	if (dynamic_cast<AST::Number*>(v) != nullptr) return r;
 
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 	{
-		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
-		{
-			return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
-		}
-		else
-			return CreateAutoLoad(v);
+		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr) return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
+		else return CreateAutoLoad(v);
 	}
-	else
-	{
-		return CreateAutoLoad(v);
-	}
+	else return CreateAutoLoad(v);
 
 	return nullptr;
 }
 
 void AddInst(std::string target_name, llvm::Value* r)
 {	
-	if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end())
-	{
-		CodeGen::NamedLoads[target_name].second = r;
-	}
-	else
-	{
-		CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
-	}
+	if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end()) CodeGen::NamedLoads[target_name].second = r;
+	else CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
 }
 
 llvm::Value* AST::Add::codegen()
