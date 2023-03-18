@@ -84,7 +84,7 @@ void CodeGen::Run()
 		  );
 		  // Close process and thread handles. 
 		
-		if(!res)
+		if (!res)
 		{
 			std::cout << "Error: Program can't be executed.\n";
 			exit(1);
@@ -112,10 +112,10 @@ void CodeGen::Run()
 
 llvm::Function* CodeGen::GetFunction(std::string name)
 {
-	if(auto* F = TheModule->getFunction(name)) { return F; }
+	if (auto* F = TheModule->getFunction(name)) { return F; }
 
 	auto FI = AST::FunctionProtos.find(name);
-	if(FI != AST::FunctionProtos.end())
+	if (FI != AST::FunctionProtos.end())
 	{
 		return FI->second->codegen();
 	}

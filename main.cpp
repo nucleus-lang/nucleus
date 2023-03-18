@@ -27,31 +27,31 @@ void CompileToLLVMIR()
 
 int main(int argc, char const *argv[])
 {
-	if(argc > 1)
+	if (argc > 1)
 	{
 		std::string cmd = argv[1];
-		if(cmd == "hello")
+		if (cmd == "hello")
 		{
 			std::cout << "Hi! :D\n";
 		}
-		else if(cmd == "emit")
+		else if (cmd == "emit")
 		{
 			CompileToLLVMIR();
 			CodeGen::Print();
 		}
-		else if(cmd == "build")
+		else if (cmd == "build")
 		{
 			CompileToLLVMIR();
 			CodeGen::Build();
 		}
-		else if(cmd == "run")
+		else if (cmd == "run")
 		{
 			CompileToLLVMIR();
 			CodeGen::Run();
 		}
-		else if(cmd == "create")
+		else if (cmd == "create")
 		{
-			if(argc > 2)
+			if (argc > 2)
 			{
 				Project::Create(argv[2]);
 			}
