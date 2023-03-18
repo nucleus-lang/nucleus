@@ -1,6 +1,6 @@
-fn main(): bool
+fn main(): i32
 {
-	alloc boolean: i32 = true;
+	alloc boolean: i32 = 1;
 
 	return boolean;
 }

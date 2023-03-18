@@ -7,6 +7,8 @@ std::string Lexer::IdentifierStr;
 int Lexer::Line;
 int Lexer::Column;
 int Lexer::LastChar;
+int Lexer::Position;
+int Lexer::CurrentToken;
 
 std::string Lexer::line_as_string;
 
