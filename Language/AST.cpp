@@ -1,11 +1,13 @@
 #include "AST.hpp"
 #include "Lexer.hpp"
 #include "ErrorHandler.hpp"
+#include <limits>
 
 llvm::Value* AST::CurrInst;
 
 std::string AST::CurrentIdentifier;
 std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
+AST::Type* AST::current_proto_type = nullptr;
 
 llvm::Value* AST::Expression::codegenOnlyLoad()
 {
@@ -41,7 +43,7 @@ llvm::Value* AST::Number::codegen()
 {
 	if (isInt)
 	{
-		llvm::Type *getType = nullptr;
+		llvm::IntegerType *getType = nullptr;
 
 		if (bit == 1)        getType = llvm::IntegerType::getInt1Ty(*CodeGen::TheContext);
 		else if (bit == 8)   getType = llvm::IntegerType::getInt8Ty(*CodeGen::TheContext);
@@ -51,7 +53,8 @@ llvm::Value* AST::Number::codegen()
 		else if (bit == 128) getType = llvm::IntegerType::getInt128Ty(*CodeGen::TheContext);
 		else                 getType = llvm::IntegerType::getInt32Ty(*CodeGen::TheContext);
 
-		return llvm::ConstantInt::get(getType, intValue, false);
+		if(!is_unsigned)	 return llvm::ConstantInt::get(*CodeGen::TheContext, llvm::APInt(getType->getBitWidth(), intValue, false));
+		else 				 return llvm::ConstantInt::get(*CodeGen::TheContext, llvm::APInt(getType->getBitWidth(), uintValue, true));
 	}
 	else if (isDouble)
 	{
@@ -62,6 +65,19 @@ llvm::Value* AST::Number::codegen()
 		return llvm::ConstantFP::get(*CodeGen::TheContext, llvm::APFloat(floatValue));
 	}
 
+	return nullptr;
+}
+
+llvm::Type* AST::i1::codegen() { return llvm::Type::getInt1Ty(*CodeGen::TheContext); }
+llvm::Type* AST::i8::codegen() { return llvm::Type::getInt8Ty(*CodeGen::TheContext); }
+llvm::Type* AST::i16::codegen() { return llvm::Type::getInt16Ty(*CodeGen::TheContext); }
+llvm::Type* AST::i32::codegen() { return llvm::Type::getInt32Ty(*CodeGen::TheContext); }
+llvm::Type* AST::i64::codegen() { return llvm::Type::getInt64Ty(*CodeGen::TheContext); }
+llvm::Type* AST::i128::codegen() { return llvm::Type::getInt128Ty(*CodeGen::TheContext); }
+
+llvm::Value* AST::Nothing::codegen()
+{
+	CodeGen::Error("What is 'Nothing' doing here in the codegen process?... what? ._.");
 	return nullptr;
 }
 
@@ -130,16 +146,6 @@ llvm::Value* AST::Load::codegen()
 	else CodeGen::NamedLoads[Name] = std::make_pair(L, nullptr);
 
 	return L;
-}
-
-llvm::Type* AST::i1::codegen()
-{
-	return llvm::Type::getInt1Ty(*CodeGen::TheContext);
-}
-
-llvm::Type* AST::i32::codegen()
-{
-	return llvm::Type::getInt32Ty(*CodeGen::TheContext);
 }
 
 llvm::Value* AST::Variable::codegen()
@@ -241,6 +247,85 @@ void AddInst(std::string target_name, llvm::Value* r)
 	else CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
 }
 
+intmax_t get_add_uint_limit(std::string t)
+{
+	if(t == "u8") return intmax_t(std::numeric_limits<int8_t>::max());
+	else if(t == "u16") return intmax_t(std::numeric_limits<int16_t>::max());
+	else if(t == "u32") return intmax_t(std::numeric_limits<int32_t>::max());
+	else if(t == "u64") return intmax_t(std::numeric_limits<int64_t>::max());
+	else if(t == "u128") return intmax_t(std::numeric_limits<intmax_t>::max());
+
+	CodeGen::Error("Type is not unsigned!");
+	return 1;
+}
+
+intmax_t get_add_uint_limit(AST::Number* final_type)
+{
+	if(final_type->bit == 8) return get_add_uint_limit("u8");
+	else if(final_type->bit == 16) return get_add_uint_limit("u16");
+	else if(final_type->bit == 32) return get_add_uint_limit("u32");
+	else if(final_type->bit == 64) return get_add_uint_limit("u64");
+	else if(final_type->bit == 128) return get_add_uint_limit("u128");
+
+	CodeGen::Error("Type is not unsigned!");
+	return 1;
+}
+
+intmax_t get_real_integer(AST::Number* t)
+{
+	if(t->is_unsigned)
+		return t->uintValue;
+
+	return t->intValue;
+}
+
+llvm::Value* cast_final_right_inst(AST::Number* r, llvm::Value* c)
+{
+	if(r->is_unsigned)
+	{
+		auto new_numb = std::make_unique<AST::Number>(std::to_string(r->uintValue), true);
+		new_numb->bit = r->bit * 2;
+
+		return new_numb->codegen();
+	}
+
+	return c;
+}
+
+llvm::Value* final_unsigned_integer_add(AST::Expression* value, llvm::Value* L, llvm::Value* R)
+{
+	if(dynamic_cast<AST::Number*>(value))
+	{
+		auto numb_v = dynamic_cast<AST::Number*>(value);
+		int get_uint_limit = get_add_uint_limit(numb_v);
+		intmax_t limit = get_real_integer(numb_v);
+
+		bool bypassed = false;
+
+		for(int i = 0; i < limit; i++)
+		{
+			if(i >= get_uint_limit)
+			{
+				bypassed = true;
+				break;
+			}
+		}
+
+		if(bypassed)
+		{
+			auto current_type = L->getType();
+
+			auto sext_inst = CodeGen::Builder->CreateSExt(L, llvm::IntegerType::get(*CodeGen::TheContext, numb_v->bit * 2), "sexttmp");
+			auto add_inst = CodeGen::Builder->CreateAdd(sext_inst, cast_final_right_inst(numb_v, R), "addtmp");
+			auto trunc_inst = CodeGen::Builder->CreateTrunc(add_inst, current_type, "trunctmp");
+
+			return trunc_inst;
+		}
+	}
+
+	return CodeGen::Builder->CreateAdd(L, R, "addtmp");
+}
+
 llvm::Value* AST::Add::codegen()
 {
 	llvm::Value* L = GetInst(Target.get());
@@ -250,7 +335,14 @@ llvm::Value* AST::Add::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	if (IsIntegerType(L) && IsIntegerType(R)) Result = CodeGen::Builder->CreateAdd(L, R, "addtmp");
+	if (IsIntegerType(L) && IsIntegerType(R))
+	{
+		if(!Target->is_unsigned)
+			Result = CodeGen::Builder->CreateAdd(L, R, "addtmp");
+		else
+			Result = final_unsigned_integer_add(Value.get(), L, R);
+
+	}
 	else Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
 
 	AddInst(target_name, Result);
@@ -378,6 +470,9 @@ llvm::Function* AST::Function::codegen()
 		CodeGen::Error("Function prototype is nullptr.\n");
 
 	auto &P = *Proto;
+
+	// Save this one for later...
+	//AST::current_proto_type = Proto.PType.get();
 
 	AST::FunctionProtos[Proto->getName()] = std::move(Proto);
 	llvm::Function* TheFunction = CodeGen::GetFunction(P.getName());

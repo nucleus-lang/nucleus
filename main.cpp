@@ -10,6 +10,9 @@ std::string Parser::last_identifier;
 std::string Parser::last_target;
 bool Parser::grab_target = true;
 std::unordered_map<std::string, std::string> Parser::all_variables;
+std::unordered_map<std::string, std::string> Parser::all_loads;
+std::unordered_map<std::string, bool> Parser::vars_with_nothing;
+std::unordered_map<std::string, bool> Parser::verified_allocs;
 
 void CompileToLLVMIR()
 {

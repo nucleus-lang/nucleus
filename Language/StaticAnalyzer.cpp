@@ -1,4 +1,5 @@
 #include "StaticAnalyzer.hpp"
+#include "ErrorHandler.hpp"
 #include <iostream>
 #include <sstream>
 

@@ -31,6 +31,8 @@ enum Token
 
 	True = -16,
 	False = -17,
+
+	Nothing = -18,
 };
 
 struct Lexer
@@ -187,7 +189,7 @@ struct Lexer
 
 		if (IsIdentifier("fn")) return Token::Function;
 		else if (IsIdentifier("return")) return Token::Return;
-		else if (IsIdentifier("alloc")) return Token::Alloca;
+		else if (IsIdentifier("var")) return Token::Alloca;
 		else if (IsIdentifier("store")) return Token::Store;
 		else if (IsIdentifier("load")) return Token::Load;
 		else if (IsIdentifier("add")) return Token::Add;
@@ -196,6 +198,7 @@ struct Lexer
 		else if (IsIdentifier("verify")) return Token::Verify;
 		else if (IsIdentifier("true")) return Token::True;
 		else if (IsIdentifier("false")) return Token::False;
+		else if (IsIdentifier("Nothing")) return Token::Nothing;
 		return Token::Identifier;
 	}
 
@@ -205,9 +208,9 @@ struct Lexer
 
 		do
 		{
-			NumStr += LastChar;
+			if(LastChar != '_') NumStr += LastChar;
 			LastChar = Advance();
-		} while (isdigit(LastChar) || LastChar == '.' || LastChar == 'f');
+		} while (isdigit(LastChar) || LastChar == '.' || LastChar == 'f' || LastChar == '_');
 	
 		NumValString = NumStr;
 		return Token::Number;

@@ -1,6 +1,7 @@
-fn main(): i32
+fn main(): u32
 {
-	alloc boolean: i32 = 1;
+	var one: u32 = 0;
+	one += 4_000_000_000; verify;
 
-	return boolean;
+	return one;
 }

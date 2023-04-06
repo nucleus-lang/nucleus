@@ -13,17 +13,46 @@ struct Parser
 	static std::string last_target;
 	static bool grab_target;
 	static std::unordered_map<std::string, std::string> all_variables;
+	static std::unordered_map<std::string, std::string> all_loads;
+
+	static std::unordered_map<std::string, bool> vars_with_nothing;
+	static std::unordered_map<std::string, bool> verified_allocs;
 
 	static void add_to_variables_list(std::string name, std::string type)
 	{
 		all_variables[name] = type;
 	}
 
+	static void add_to_loads_list(std::string name, std::string type)
+	{
+		all_loads[name] = type;
+	}
+
 	static std::string get_type_from_variable(std::string name)
 	{
-		if (all_variables.find(name) == all_variables.end()) return "";
+		if (all_variables.find(name) != all_variables.end()) 	return all_variables[name];
+		else if (all_loads.find(name) != all_loads.end()) 		return all_loads[name];
 
-		return all_variables[name];
+		return "";
+	}
+
+	static int type_to_bit(std::string type)
+	{
+		if(type == "i1" || type == "bool") return 1;
+		else if(type == "i8") return 8;
+		else if(type == "i16") return 16;
+		else if(type == "i32") return 32;
+		else if(type == "i64") return 64;
+		else if(type == "i128") return 128;
+
+		else if(type == "u8" || type == "char") return -8;
+		else if(type == "u16" || type == "wchar") return -16;
+		else if(type == "u32" || type == "uchar") return -32;
+		else if(type == "u64") return -64;
+		else if(type == "u128") return -128;
+
+		AST::ExprError("Cannot assign a number, boolean and/or character to a '" + type + "' variable.");
+		return 0;
 	}
 
 	static std::unique_ptr<AST::Expression> ParseNumber() 
@@ -33,7 +62,18 @@ struct Parser
 		if (type_result == "i1" || type_result == "bool")
 			return AST::ExprError("Cannot assign a number value to a boolean type variable.");
 
-		auto Result = std::make_unique<AST::Number>(Lexer::NumValString);
+		bool is_unsigned = false;
+
+		int bit = type_to_bit(type_result);
+
+		if(bit < 0)
+		{
+			bit *= -1;
+			is_unsigned = true;
+		}
+
+		auto Result = std::make_unique<AST::Number>(Lexer::NumValString, is_unsigned);
+		Result->bit = bit;
 	
 		Lexer::GetNextToken();
 	
@@ -67,6 +107,16 @@ struct Parser
 		return Result;
 	}
 
+	static std::unique_ptr<AST::Expression> ThrowNothingError()
+	{
+		return AST::ExprError("'Nothing' can't be used here! 'Nothing' is used only to mark values as uninitialized!");
+	}
+
+	static void CheckIfNothing(AST::Expression* l)
+	{
+		if(dynamic_cast<AST::Nothing*>(l)) ThrowNothingError();
+	}
+
 	static std::unique_ptr<AST::Expression> CheckForVerify(std::unique_ptr<AST::Expression> V)
 	{
 		if (dynamic_cast<AST::Link*>(V.get()))
@@ -80,6 +130,36 @@ struct Parser
 		return V;
 	}
 
+	static void check_if_alloc_is_verified(AST::Variable* v)
+	{
+		if(all_loads.find(v->Name) == all_loads.end() && !verified_allocs[v->Name])
+			AST::ExprError("The variable '" + v->Name + "' is not verified.");
+	}
+
+	static void verify_alloc(std::string v)
+	{
+		if(all_loads.find(v) == all_loads.end())
+			verified_allocs[v] = true;
+	}
+
+	static void unverify_alloc(std::string v)
+	{
+		if(all_loads.find(v) == all_loads.end())
+			verified_allocs[v] = false;
+	}
+
+	static void initialize_alloc(std::string v)
+	{
+		if(all_loads.find(v) == all_loads.end())
+			vars_with_nothing[v] = false;
+	}
+
+	static void uninitialize_alloc(std::string v)
+	{
+		if(all_loads.find(v) == all_loads.end())
+			vars_with_nothing[v] = true;
+	}
+
 	static std::unique_ptr<AST::Expression> ParseBinaryOperator(std::unique_ptr<AST::Expression> L)
 	{
 		if (Lexer::CurrentToken == '=')
@@ -87,9 +167,26 @@ struct Parser
 			Lexer::GetNextToken();
 			auto R = ParseExpression();
 
-			if (dynamic_cast<AST::Number*>(R.get()) == nullptr)
+			if(dynamic_cast<AST::Nothing*>(R.get()))
 			{
+				if(dynamic_cast<AST::Alloca*>(L.get()) == nullptr)
+					return ThrowNothingError();
+
+				return L;
+			}
+			else if (dynamic_cast<AST::Number*>(R.get()) == nullptr)
+			{
+				AST::Variable* l_as_var = dynamic_cast<AST::Variable*>(L.get());
+				AST::Variable* r_as_var = dynamic_cast<AST::Variable*>(R.get());
+
+				if(r_as_var) check_if_alloc_is_verified(r_as_var);
+				if(l_as_var) {
+					verify_alloc(l_as_var->Name);
+					initialize_alloc(l_as_var->Name);
+				}
+
 				auto RLoad = std::make_unique<AST::Load>("autoLoad", std::make_unique<AST::i32>(), std::move(R));
+
 				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(RLoad)));
 			}
 			else
@@ -99,8 +196,21 @@ struct Parser
 				// if (get_r->isInt) r_i32 = get_r->return_i32();
 				// StaticAnalyzer::new_static_i32(Parser::last_target, r_i32);
 
+				AST::Variable* l_as_var = dynamic_cast<AST::Variable*>(L.get());
+				AST::Alloca* l_as_alloc = dynamic_cast<AST::Alloca*>(L.get());
+
+				if(l_as_var) {
+					verify_alloc(l_as_var->Name);
+					initialize_alloc(l_as_var->Name);
+				}
+				else if(l_as_alloc) {
+					verify_alloc(l_as_alloc->VarName);
+					initialize_alloc(l_as_alloc->VarName);
+				}
+
 				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
 			}
+
 		}
 		else if (Lexer::CurrentToken == '+')
 		{
@@ -109,6 +219,14 @@ struct Parser
 			if (Lexer::CurrentToken == '=') Lexer::GetNextToken();
 
 			auto R = ParseExpression();
+
+			CheckIfNothing(R.get());
+
+			AST::Variable* l_as_var = dynamic_cast<AST::Variable*>(L.get());
+			if(l_as_var) unverify_alloc(l_as_var->Name);
+
+			AST::Variable* r_as_var = dynamic_cast<AST::Variable*>(R.get());
+			if(r_as_var) check_if_alloc_is_verified(r_as_var);
 
 			// if (dynamic_cast<AST::Number*>(R.get()))
 			// {
@@ -130,6 +248,14 @@ struct Parser
 
 			auto R = ParseExpression();
 
+			CheckIfNothing(R.get());
+
+			AST::Variable* l_as_var = dynamic_cast<AST::Variable*>(L.get());
+			if(l_as_var) unverify_alloc(l_as_var->Name);
+
+			AST::Variable* r_as_var = dynamic_cast<AST::Variable*>(R.get());
+			if(r_as_var) check_if_alloc_is_verified(r_as_var);
+
 			// if (dynamic_cast<AST::Number*>(R.get()))
 			// {
 			// 	auto get_r = dynamic_cast<AST::Number*>(R.get());
@@ -142,14 +268,17 @@ struct Parser
 
 			return ParseBinaryOperator(std::make_unique<AST::Sub>(std::move(L), std::move(R)));
 		}
-		else if (Lexer::CurrentToken != ';')
+		//else if (Lexer::CurrentToken != ';')
+		//{
+		//	return AST::ExprError("Expected an operator (=, +, -, * or /).");
+		//}
+		else if(dynamic_cast<AST::Alloca*>(L.get()) != nullptr && Lexer::CurrentToken == ';')
 		{
-			return AST::ExprError("Expected an operator (=, +, -, * or /).");
+			AST::Alloca* l_as_alloc = dynamic_cast<AST::Alloca*>(L.get());
+			if(l_as_alloc) uninitialize_alloc(l_as_alloc->VarName);
 		}
-		else
-		{
-			return L;
-		}
+		
+		return L;
 	}
 
 	static std::unique_ptr<AST::Expression> ParseParenthesis() 
@@ -202,7 +331,17 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::Verify) return ParseVerify();
 		else if (Lexer::CurrentToken == Token::True) return ParseBoolValue(true);
 		else if (Lexer::CurrentToken == Token::False) return ParseBoolValue(false);
+		else if (Lexer::CurrentToken == Token::Nothing) return ParseNothing();
 		else  return AST::ExprError("unknown token when expecting an expression");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseNothing()
+	{
+		vars_with_nothing[Parser::last_target] = true;
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::Nothing>();
 	}
 
 	static std::unique_ptr<AST::Expression> ParseVerify()
@@ -214,6 +353,9 @@ struct Parser
 			if (Parser::last_target != "")
 			{
 				auto I = std::make_unique<AST::Variable>(nullptr, Parser::last_target);
+
+				verify_alloc(Parser::last_target);
+
 				return std::make_unique<AST::Link>(std::move(I), nullptr);
 			}
 			else
@@ -223,6 +365,8 @@ struct Parser
 		}
 
 		auto I = ParseIdentifier();
+
+		verify_alloc(Parser::last_identifier);
 
 		if (I == nullptr) return AST::ExprError("Identifier not found!");
 
@@ -262,6 +406,8 @@ struct Parser
 
 		auto I = ParseIdentifier();
 
+		unverify_alloc(Parser::last_identifier);
+
 		if (Lexer::CurrentToken != ',') return AST::ExprError("Expected ',' to separate Add arguments.");
 
 		Lexer::GetNextToken();
@@ -284,6 +430,8 @@ struct Parser
 		Lexer::GetNextToken();
 
 		auto I = ParseIdentifier();
+
+		unverify_alloc(Parser::last_identifier);
 
 		if (Lexer::CurrentToken != ',') return AST::ExprError("Expected ',' to separate Add arguments.");
 
@@ -312,6 +460,8 @@ struct Parser
 
 		auto T = ParseType();
 
+		add_to_loads_list(Name, Lexer::IdentifierStr);
+
 		Lexer::GetNextToken();
 
 		if (Lexer::CurrentToken != '=') return AST::ExprError("Expected ':' to set Load value.");
@@ -319,6 +469,9 @@ struct Parser
 		Lexer::GetNextToken();
 
 		auto Value = ParseIdentifier();
+
+		AST::Variable* value_as_var = dynamic_cast<AST::Variable*>(Value.get());
+		if(value_as_var) check_if_variable_is_uninitialized(value_as_var, 1);
 
 		return std::make_unique<AST::Load>(Name, std::move(T), std::move(Value));
 	}
@@ -332,6 +485,8 @@ struct Parser
 		Lexer::GetNextToken();
 
 		auto Target = ParseIdentifier();
+
+		initialize_alloc(Parser::last_identifier);
 
 		if (Lexer::CurrentToken != ',') return AST::ExprError("Expected ','.");
 
@@ -366,7 +521,25 @@ struct Parser
 
 		Lexer::GetNextToken();
 
-		return std::make_unique<AST::Alloca>(std::move(T), Name);
+		auto new_alloc = std::make_unique<AST::Alloca>(std::move(T), Name);
+
+		//new_alloc->is_unsigned = T->is_unsigned;
+
+		return new_alloc;
+	}
+
+	// uninitialized_type guide:
+	// 0 = The variable is being used in the 'return' keyword.
+	// 1 = The variable is being passed to a 'load' instruction.
+	static void check_if_variable_is_uninitialized(AST::Variable* v, int uninitialized_type = 0)
+	{
+		if(vars_with_nothing[v->Name] == true)
+		{
+			if(uninitialized_type == 0)
+				AST::ExprError("You can't return uninitialized variables. '" + v->Name + "' is uninitialized.");
+			else if(uninitialized_type == 1)
+				AST::ExprError("You can't pass uninitialized variables to 'load'. '" + v->Name + "' is uninitialized.");
+		}
 	}
 
 	static std::unique_ptr<AST::Expression> ParseReturn()
@@ -391,6 +564,13 @@ struct Parser
 
 		if (dynamic_cast<AST::Variable*>(Expr.get()) || dynamic_cast<AST::Link*>(Expr.get()))
 		{
+			AST::Variable* expr_as_v = dynamic_cast<AST::Variable*>(Expr.get());
+			if(expr_as_v)
+			{
+				check_if_variable_is_uninitialized(expr_as_v);
+				check_if_alloc_is_verified(expr_as_v);
+			}
+
 			auto LoadExpr = std::make_unique<AST::Load>("autoLoad", nullptr, std::move(Expr));
 
 			return std::make_unique<AST::Return>(std::move(LoadExpr));	
@@ -401,9 +581,24 @@ struct Parser
 
 	static std::unique_ptr<AST::Type> ParseType()
 	{
+		std::unique_ptr<AST::Type> unsigned_type = nullptr;
+
 		if (Lexer::IdentifierStr == "i1" || Lexer::IdentifierStr == "bool") { return std::make_unique<AST::i1>(); }
+		else if (Lexer::IdentifierStr == "i8") { return std::make_unique<AST::i8>(); }
+		else if (Lexer::IdentifierStr == "i16") { return std::make_unique<AST::i16>(); }
 		else if (Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
-		return nullptr;
+		else if (Lexer::IdentifierStr == "i64") { return std::make_unique<AST::i64>(); }
+		else if (Lexer::IdentifierStr == "i128") { return std::make_unique<AST::i128>(); }
+
+		else if(Lexer::IdentifierStr == "u8" || Lexer::IdentifierStr == "char") { unsigned_type = std::make_unique<AST::i8>(); }
+		else if(Lexer::IdentifierStr == "u16" || Lexer::IdentifierStr == "wchar") { unsigned_type = std::make_unique<AST::i16>(); }
+		else if(Lexer::IdentifierStr == "u32" || Lexer::IdentifierStr == "uchar") { unsigned_type = std::make_unique<AST::i32>(); }
+		else if(Lexer::IdentifierStr == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
+		else if(Lexer::IdentifierStr == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
+
+		unsigned_type->is_unsigned = true;
+
+		return unsigned_type;
 	}
 
 	static std::unique_ptr<AST::Prototype> ParsePrototype() 

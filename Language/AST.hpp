@@ -17,8 +17,12 @@ struct AST
 	{
 		virtual ~Type() = default;
 
+		bool is_unsigned = false;
+
 		virtual llvm::Type* codegen() = 0;
 	};
+
+	static AST::Type* current_proto_type;
 
 	struct Expression
 	{
@@ -30,6 +34,8 @@ struct AST
 
 		bool onlyLoad = false;
 
+		bool is_unsigned = true;
+
 		llvm::Value* codegenOnlyLoad();
 
 		llvm::Value* CurrentInstruction();
@@ -38,21 +44,27 @@ struct AST
 	};
 
 	NEW_TYPE(i1);
+	NEW_TYPE(i8);
+	NEW_TYPE(i16);
 	NEW_TYPE(i32);
+	NEW_TYPE(i64);
+	NEW_TYPE(i128);
 
 	static std::unique_ptr<Expression> ExprError(std::string str);
 
 	struct Number : public Expression
 	{
 		bool isDouble = false, isInt = false, isFloat = false;
-		int intValue = 0;
+		int64_t intValue = 0;
+		uint64_t uintValue = 0;
 		double doubleValue = 0;
 		float floatValue = 0;
 		unsigned bit = 32;
 		std::string valueAsString;
 
-		Number(std::string val) 
+		Number(std::string val, bool is_uns = false) 
 		{
+			is_unsigned = is_uns;
 			//std::cout << "Number Input: " << val << "\n";
 			if (val.find(".") != std::string::npos) {
 				isFloat = val.back() == 'f';
@@ -62,7 +74,9 @@ struct AST
 				else doubleValue = std::stod(val);
 			} else {
 				isInt = true;
-				intValue = std::stoi(val);
+
+				if(!is_unsigned) intValue = std::stoi(val);
+				else uintValue = std::stoul(val);
 			}
 
 			valueAsString = val;
@@ -178,6 +192,11 @@ struct AST
 
 		VerifyOne(std::unique_ptr<Expression> Target) : Target(std::move(Target)) {}
 
+		llvm::Value* codegen() override;
+	};
+
+	struct Nothing : public Expression
+	{
 		llvm::Value* codegen() override;
 	};
 
