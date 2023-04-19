@@ -1,7 +1,10 @@
+fn add_two_with(number: i32): u32 
+{
+	return number + 2;
+}
+
 fn main(): u32
 {
-	var one: u32 = 0;
-	one += 4_000_000_000; verify;
-
+	var one: u32 = add_two_with(2);
 	return one;
 }

@@ -8,6 +8,8 @@
 
 #define NEW_TYPE(x) struct x : public Type { llvm::Type* codegen() override; }
 
+#define ARGUMENT_LIST() std::vector<std::unique_ptr<AST::Expression>>
+
 struct AST
 {
 	static llvm::Value* CurrInst;
@@ -93,10 +95,10 @@ struct AST
 	struct Call : public Expression
 	{
 		std::string Callee;
-		std::vector<std::unique_ptr<Expression>> Args;
+		ARGUMENT_LIST() Args;
 
 		Call(const std::string &Callee,
-			  std::vector<std::unique_ptr<AST::Expression>> Args)
+			  ARGUMENT_LIST() Args)
 		: Callee(Callee), Args(std::move(Args)) {}
 
 		llvm::Value* codegen() override;

@@ -81,6 +81,26 @@ llvm::Value* AST::Nothing::codegen()
 	return nullptr;
 }
 
+llvm::Value* AST::Call::codegen()
+{
+	llvm::Function* CalleeF = CodeGen::TheModule->getFunction(Callee);
+	if (!CalleeF) CodeGen::Error("Unknown function " + Callee + " referenced.\n");
+
+	if (CalleeF->arg_size() != Args.size())
+		CodeGen::Error("Incorrect # arguments passed.\n");
+
+	std::vector<llvm::Value*> ArgsV;
+	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
+		llvm::Value* argCG = Args[i]->codegen();
+		if (!argCG) CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n");
+
+		ArgsV.push_back(argCG);
+		if (!ArgsV.back()) CodeGen::Error("The Argument List in " + Callee + " had an internal error in the codegen.\n");
+	}
+
+	return CodeGen::Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+}
+
 llvm::Value* AST::Return::codegen()
 {
 	if (dynamic_cast<AST::Variable*>(Expr.get()))
@@ -104,6 +124,8 @@ llvm::Value* AST::Return::codegen()
 	llvm::Value* c = Expr->codegen();
 	return CodeGen::Builder->CreateRet(c);
 }
+
+
 
 llvm::Value* AST::Load::codegen()
 {
@@ -159,7 +181,16 @@ llvm::Value* AST::Variable::codegen()
 	{ 
 		llvm::LoadInst* V2 = CodeGen::NamedLoads[Name].first;
 
-		if (!V2) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+		if (!V2) { 
+
+			llvm::Argument* V3 = CodeGen::NamedArguments[Name].first;
+
+			if(!V3) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+
+			AST::CurrentIdentifier = Name;
+
+			return V3;
+		}
 
 		AST::CurrentIdentifier = Name;
 
@@ -167,12 +198,6 @@ llvm::Value* AST::Variable::codegen()
 	}
 
 	AST::CurrentIdentifier = Name;
-
-	// if (!currentGPState)
-	// 	return CodeGen::Builder->CreateLoad(V->getAllocatedType(), V, Name.c_str());
-	// else
-	// 	return CodeGen::Builder->CreateLoad(V->getAllocatedType()->getPointerTo(), V, Name.c_str());
-	// return nullptr;
 
 	return V;
 }
@@ -213,6 +238,7 @@ llvm::Value* CreateAutoLoad(AST::Expression* v)
 	llvm::Type* TV = nullptr;
 
 	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV)) return I;
+	if (llvm::Argument* I = dyn_cast<llvm::Argument>(getV)) return I;
 
 	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
 	else TV = getV->getType();
@@ -229,21 +255,21 @@ llvm::Value* GetInst(AST::Expression* v)
 
 	if (r == nullptr) CodeGen::Error("r is nullptr");
 
-	if (dynamic_cast<AST::Number*>(v) != nullptr) return r;
+	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return r;
+
+	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
+		if (CodeGen::NamedArguments[AST::CurrentIdentifier].second != nullptr) return CodeGen::NamedArguments[AST::CurrentIdentifier].second;
 
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
-	{
 		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr) return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
-		else return CreateAutoLoad(v);
-	}
-	else return CreateAutoLoad(v);
 
-	return nullptr;
+	return CreateAutoLoad(v);
 }
 
 void AddInst(std::string target_name, llvm::Value* r)
 {	
 	if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end()) CodeGen::NamedLoads[target_name].second = r;
+	else if (CodeGen::NamedArguments.find(target_name) != CodeGen::NamedArguments.end()) CodeGen::NamedArguments[target_name].second = r;
 	else CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
 }
 
@@ -458,7 +484,11 @@ llvm::Function* AST::Prototype::codegen()
 	{
 		if (Args[Idx] == nullptr) CodeGen::Error("One of the Arguments is nullptr.");
 
-		Arg.setName(Args[Idx++]->Name);
+		Arg.setName(Args[Idx]->Name);
+
+		CodeGen::NamedArguments[Args[Idx]->Name] = std::make_pair(&Arg, nullptr);
+
+		Idx++;
 	}
 
 	return F;
@@ -466,6 +496,10 @@ llvm::Function* AST::Prototype::codegen()
 
 llvm::Function* AST::Function::codegen()
 {
+	CodeGen::NamedValues.clear();
+	CodeGen::NamedArguments.clear();
+	CodeGen::NamedLoads.clear();
+
 	if (Proto == nullptr)
 		CodeGen::Error("Function prototype is nullptr.\n");
 
@@ -479,9 +513,6 @@ llvm::Function* AST::Function::codegen()
 
 	llvm::BasicBlock* BB = llvm::BasicBlock::Create(*CodeGen::TheContext, "entry", TheFunction);
 	CodeGen::Builder->SetInsertPoint(BB);
-
-	CodeGen::NamedValues.clear();
-	CodeGen::NamedLoads.clear();
 
 	for (auto const& i: Body)
 	{

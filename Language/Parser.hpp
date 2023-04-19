@@ -18,6 +18,14 @@ struct Parser
 	static std::unordered_map<std::string, bool> vars_with_nothing;
 	static std::unordered_map<std::string, bool> verified_allocs;
 
+	static std::pair<std::string, std::string> current_function_in_scope;
+
+	template<typename TO, typename FROM>
+	static std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old) {
+    	return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
+    	// conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
+	}
+
 	static void add_to_variables_list(std::string name, std::string type)
 	{
 		all_variables[name] = type;
@@ -55,9 +63,12 @@ struct Parser
 		return 0;
 	}
 
-	static std::unique_ptr<AST::Expression> ParseNumber() 
+	static std::unique_ptr<AST::Expression> ParseNumber(bool in_return = false) 
 	{
-		std::string type_result = get_type_from_variable(Parser::last_target);
+		std::string type_result;
+
+		if(in_return) 	type_result = current_function_in_scope.second;
+		else 			type_result = get_type_from_variable(Parser::last_target);
 
 		if (type_result == "i1" || type_result == "bool")
 			return AST::ExprError("Cannot assign a number value to a boolean type variable.");
@@ -80,9 +91,9 @@ struct Parser
 		return std::move(Result);
 	}
 
-	static std::unique_ptr<AST::Expression> ParseExpression() 
+	static std::unique_ptr<AST::Expression> ParseExpression(bool is_in_return = false) 
 	{
-		auto LHS = ParsePrimary();
+		auto LHS = ParsePrimary(is_in_return);
 		if (!LHS) return nullptr;
 
 		return ParseBinaryOperator(std::move(LHS));
@@ -174,9 +185,11 @@ struct Parser
 
 				return L;
 			}
-			else if (dynamic_cast<AST::Number*>(R.get()) == nullptr)
+			else if (!dynamic_cast<AST::Number*>(R.get()) && !dynamic_cast<AST::Call*>(R.get()))
 			{
 				AST::Variable* l_as_var = dynamic_cast<AST::Variable*>(L.get());
+				AST::Alloca* l_as_alloc = dynamic_cast<AST::Alloca*>(L.get());
+
 				AST::Variable* r_as_var = dynamic_cast<AST::Variable*>(R.get());
 
 				if(r_as_var) check_if_alloc_is_verified(r_as_var);
@@ -184,9 +197,12 @@ struct Parser
 					verify_alloc(l_as_var->Name);
 					initialize_alloc(l_as_var->Name);
 				}
+				else if(l_as_alloc) {
+					verify_alloc(l_as_alloc->VarName);
+					initialize_alloc(l_as_alloc->VarName);
+				}
 
 				auto RLoad = std::make_unique<AST::Load>("autoLoad", std::make_unique<AST::i32>(), std::move(R));
-
 				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(RLoad)));
 			}
 			else
@@ -207,6 +223,8 @@ struct Parser
 					verify_alloc(l_as_alloc->VarName);
 					initialize_alloc(l_as_alloc->VarName);
 				}
+				else
+					return AST::ExprError("What");
 
 				return ParseBinaryOperator(std::make_unique<AST::Store>(std::move(L), std::move(R)));
 			}
@@ -307,19 +325,45 @@ struct Parser
 
 		Parser::last_identifier = IdName;
 
-		SetIdentToMainTarget(Parser::last_identifier);
-
 		Lexer::check_if_identifier_follows_format(0, 0);
 
 		Lexer::GetNextToken();  // eat identifier.
 
+		if(Lexer::CurrentToken == '(')
+		{
+			Lexer::GetNextToken();
+			ARGUMENT_LIST() currentArgs;
+
+			while(Lexer::CurrentToken != ')')
+			{
+				auto Expr = ParseExpression();
+
+				if(Lexer::CurrentToken != ',' && Lexer::CurrentToken != ')')
+					return AST::ExprError("Expected ',' or ')' after identifier.");
+
+				currentArgs.push_back(std::move(Expr));
+
+				if(Lexer::CurrentToken == ')')
+				{
+					Lexer::GetNextToken();
+					break;
+				}
+			}
+
+			if(Lexer::CurrentToken == ')') Lexer::GetNextToken();
+
+			return std::make_unique<AST::Call>(IdName, std::move(currentArgs));
+		}
+
+		SetIdentToMainTarget(IdName);
+
 		return std::make_unique<AST::Variable>(nullptr, IdName);
 	}
 
-	static std::unique_ptr<AST::Expression> ParsePrimary() 
+	static std::unique_ptr<AST::Expression> ParsePrimary(bool is_in_return = false) 
 	{
 		if (Lexer::CurrentToken == Token::Identifier) return ParseIdentifier();
-		else if (Lexer::CurrentToken == Token::Number)  return ParseNumber();
+		else if (Lexer::CurrentToken == Token::Number)  return ParseNumber(is_in_return);
 		else if (Lexer::CurrentToken == '(') return ParseParenthesis();
 		else if (Lexer::CurrentToken == Token::Return)  return ParseReturn();
 		else if (Lexer::CurrentToken == Token::Alloca) return ParseAlloca();
@@ -487,6 +531,7 @@ struct Parser
 		auto Target = ParseIdentifier();
 
 		initialize_alloc(Parser::last_identifier);
+		verify_alloc(Parser::last_identifier);
 
 		if (Lexer::CurrentToken != ',') return AST::ExprError("Expected ','.");
 
@@ -558,7 +603,7 @@ struct Parser
 			return std::make_unique<AST::Return>(std::move(Ref));
 		}
 
-		auto Expr = ParseExpression();
+		auto Expr = ParseExpression(true);
 
 		// if (Lexer::CurrentToken != ';') return AST::ExprError("Expected ';'");
 
@@ -601,7 +646,7 @@ struct Parser
 		return unsigned_type;
 	}
 
-	static std::unique_ptr<AST::Prototype> ParsePrototype() 
+	static std::unique_ptr<AST::Prototype> ParsePrototype(bool set_in_scope_function = false) 
 	{
 		if (Lexer::CurrentToken != Token::Identifier) return AST::Prototype::Error("Expected function name in prototype");
 	
@@ -653,6 +698,8 @@ struct Parser
 
 		auto PType = ParseType();
 
+		if(set_in_scope_function) set_new_function_in_scope(FnName, Lexer::IdentifierStr);
+
 		if (!PType) return AST::Prototype::Error("Expected type in prototype");
 
 		Lexer::GetNextToken();
@@ -666,12 +713,17 @@ struct Parser
 		// Parser::last_target = std::string("");
 	}
 
+	static void set_new_function_in_scope(std::string name, std::string type)
+	{
+		current_function_in_scope = std::make_pair(name, type);
+	}
+
 	static std::unique_ptr<AST::Function> ParseFunction() 
 	{
 		all_variables.clear();
 
 		Lexer::GetNextToken();  // eat def.
-		auto Proto = ParsePrototype();
+		auto Proto = ParsePrototype(true);
 		if (!Proto) { return nullptr; }
 
 		if (Lexer::CurrentToken != '{')
