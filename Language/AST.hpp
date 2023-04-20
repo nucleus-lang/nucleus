@@ -206,11 +206,12 @@ struct AST
 	{
 		std::unique_ptr<AST::Type> PType;
 		std::string Name;
+		std::string TypeAsString;
 		std::vector<std::unique_ptr<AST::Variable>> Args;
 		
 		public:
-			Prototype(std::unique_ptr<AST::Type> PType, const std::string &Name, std::vector<std::unique_ptr<AST::Variable>> Args)
-		 	 : PType(std::move(PType)), Name(Name), Args(std::move(Args)) {}
+			Prototype(std::unique_ptr<AST::Type> PType, const std::string &Name, std::vector<std::unique_ptr<AST::Variable>> Args, const std::string &type_as_string)
+		 	 : PType(std::move(PType)), Name(Name), Args(std::move(Args)), TypeAsString(type_as_string) {}
 		
 		const std::string &getName() const { return Name; }
 

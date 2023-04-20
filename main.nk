@@ -5,6 +5,5 @@ fn add_two_with(number: i32): u32
 
 fn main(): u32
 {
-	var one: u32 = add_two_with(2);
-	return one;
+	return add_two_with(2);
 }

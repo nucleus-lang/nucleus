@@ -11,9 +11,12 @@ struct Parser
 {
 	static std::string last_identifier;
 	static std::string last_target;
+	static std::string last_function_call;
+
 	static bool grab_target;
 	static std::unordered_map<std::string, std::string> all_variables;
 	static std::unordered_map<std::string, std::string> all_loads;
+	static std::unordered_map<std::string, std::string> all_prototypes;
 
 	static std::unordered_map<std::string, bool> vars_with_nothing;
 	static std::unordered_map<std::string, bool> verified_allocs;
@@ -44,6 +47,14 @@ struct Parser
 		return "";
 	}
 
+	static std::string get_type_from_prototype(std::string name)
+	{
+		if (name == "") 										return "";
+		if (all_prototypes.find(name) != all_prototypes.end()) 	return all_prototypes[name];
+
+		return "";
+	}
+
 	static int type_to_bit(std::string type)
 	{
 		if(type == "i1" || type == "bool") return 1;
@@ -67,8 +78,10 @@ struct Parser
 	{
 		std::string type_result;
 
-		if(in_return) 	type_result = current_function_in_scope.second;
-		else 			type_result = get_type_from_variable(Parser::last_target);
+		if(in_return) 			type_result = current_function_in_scope.second;
+		else 					type_result = get_type_from_prototype(Parser::last_function_call);
+
+		if(type_result == "") 	type_result = get_type_from_variable(Parser::last_target);
 
 		if (type_result == "i1" || type_result == "bool")
 			return AST::ExprError("Cannot assign a number value to a boolean type variable.");
@@ -329,6 +342,8 @@ struct Parser
 
 		Lexer::GetNextToken();  // eat identifier.
 
+		Parser::last_function_call = IdName;
+
 		if(Lexer::CurrentToken == '(')
 		{
 			Lexer::GetNextToken();
@@ -351,6 +366,8 @@ struct Parser
 			}
 
 			if(Lexer::CurrentToken == ')') Lexer::GetNextToken();
+
+			Parser::last_function_call = "";
 
 			return std::make_unique<AST::Call>(IdName, std::move(currentArgs));
 		}
@@ -698,13 +715,17 @@ struct Parser
 
 		auto PType = ParseType();
 
+		std::string type_as_string = Lexer::IdentifierStr;
+
 		if(set_in_scope_function) set_new_function_in_scope(FnName, Lexer::IdentifierStr);
 
 		if (!PType) return AST::Prototype::Error("Expected type in prototype");
 
 		Lexer::GetNextToken();
 
-		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames));
+		Parser::all_prototypes[FnName] = type_as_string;
+
+		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames), type_as_string);
 	}
 
 	static void ResetTarget()
