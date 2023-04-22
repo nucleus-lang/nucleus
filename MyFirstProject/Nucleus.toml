@@ -1,7 +1,0 @@
-[project]
-name = "MyFirstProject"
-version = "1.0.0"
-
-[dependencies]
-
-
