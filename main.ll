@@ -18,9 +18,9 @@ common.ret:                                       ; preds = %continue, %entry
 continue:                                         ; preds = %entry, %continue
   %n.tr3 = phi i32 [ %subtmp1, %continue ], [ %n, %entry ]
   %accumulator.tr2 = phi i32 [ %addtmp, %continue ], [ 0, %entry ]
-  %subtmp1 = add i32 %n.tr3, -2
   %subtmp = add i32 %n.tr3, -1
   %calltmp = tail call i32 @calculate_fib(i32 %subtmp)
+  %subtmp1 = add i32 %n.tr3, -2
   %addtmp = add i32 %calltmp, %accumulator.tr2
   %cmptmp = icmp ult i32 %subtmp1, 2
   br i1 %cmptmp, label %common.ret, label %continue
@@ -29,7 +29,7 @@ continue:                                         ; preds = %entry, %continue
 ; Function Attrs: nofree nosync nounwind readnone
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  %calltmp = tail call i32 @calculate_fib(i32 15)
+  %calltmp = tail call i32 @calculate_fib(i32 30)
   ret i32 %calltmp
 }
 

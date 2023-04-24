@@ -19,6 +19,8 @@ std::pair<std::string, std::string> Parser::current_function_in_scope;
 
 bool Parser::dont_share_history = false;
 
+int Parser::random_global_id = 0;
+
 void CompileToLLVMIR()
 {
 	std::ifstream t("main.nk");

@@ -21,6 +21,6 @@ continue:                                         ; preds = %if, %entry
 
 define i32 @main() {
 entry:
-  %calltmp = call i32 @calculate_fib(i32 15)
+  %calltmp = call i32 @calculate_fib(i32 30)
   ret i32 %calltmp
 }

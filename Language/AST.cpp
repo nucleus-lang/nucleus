@@ -85,6 +85,12 @@ llvm::Value* AST::Nothing::codegen()
 
 llvm::Value* AST::Call::codegen()
 {
+	for (auto const& i: inst_before_args)
+	{
+		if (i != nullptr)
+			i->codegen();
+	}
+
 	llvm::Function* CalleeF = CodeGen::TheModule->getFunction(Callee);
 	if (!CalleeF) CodeGen::Error("Unknown function " + Callee + " referenced.\n");
 

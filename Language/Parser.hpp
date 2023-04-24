@@ -23,6 +23,8 @@ struct Parser
 
 	static std::pair<std::string, std::string> current_function_in_scope;
 
+	static int random_global_id;
+
 	static bool dont_share_history;
 
 	template<typename TO, typename FROM>
@@ -371,15 +373,24 @@ struct Parser
 
 			Lexer::GetNextToken();
 			ARGUMENT_LIST() currentArgs;
+			ARGUMENT_LIST() inst_before_arg;
 
 			while(Lexer::CurrentToken != ')')
 			{
 				auto Expr = ParseExpression();
+				
+				if(dynamic_cast<AST::Add*>(Expr.get()) || dynamic_cast<AST::Sub*>(Expr.get()))
+				{
+					Expr->dont_share_history = true;
+					std::string title = "autoPure" + std::to_string(Parser::random_global_id);
+					Parser::random_global_id++;
+					inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::make_unique<AST::i32>(), std::move(Expr)));
+					currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
+				}
+				else currentArgs.push_back(std::move(Expr));
 
 				if(Lexer::CurrentToken != ',' && Lexer::CurrentToken != ')')
 					return AST::ExprError("Expected ',' or ')' after identifier.");
-
-				currentArgs.push_back(std::move(Expr));
 
 				if(Lexer::CurrentToken == ')')
 				{
@@ -392,7 +403,7 @@ struct Parser
 
 			Parser::last_function_call = "";
 
-			return std::make_unique<AST::Call>(IdName, std::move(currentArgs));
+			return std::make_unique<AST::Call>(IdName, std::move(currentArgs), std::move(inst_before_arg));
 		}
 
 		SetIdentToMainTarget(IdName);

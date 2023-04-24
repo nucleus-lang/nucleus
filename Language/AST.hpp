@@ -100,10 +100,11 @@ struct AST
 	{
 		std::string Callee;
 		ARGUMENT_LIST() Args;
+		ARGUMENT_LIST() inst_before_args;
 
 		Call(const std::string &Callee,
-			  ARGUMENT_LIST() Args)
-		: Callee(Callee), Args(std::move(Args)) {}
+			  ARGUMENT_LIST() Args, ARGUMENT_LIST() inst_before_args)
+		: Callee(Callee), Args(std::move(Args)), inst_before_args(std::move(inst_before_args)) {}
 
 		llvm::Value* codegen() override;
 	};
