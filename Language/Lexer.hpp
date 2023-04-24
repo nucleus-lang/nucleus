@@ -33,6 +33,13 @@ enum Token
 	False = -17,
 
 	Nothing = -18,
+
+	Compare = -19,
+
+	If = -20,
+	Else = -21,
+
+	Pure = -22
 };
 
 struct Lexer
@@ -199,6 +206,13 @@ struct Lexer
 		else if (IsIdentifier("true")) return Token::True;
 		else if (IsIdentifier("false")) return Token::False;
 		else if (IsIdentifier("Nothing")) return Token::Nothing;
+
+		else if (IsIdentifier("compare")) return Token::Compare;
+
+		else if (IsIdentifier("if")) return Token::If;
+		else if (IsIdentifier("else")) return Token::Else;
+
+		else if (IsIdentifier("pure")) return Token::Pure;
 		return Token::Identifier;
 	}
 

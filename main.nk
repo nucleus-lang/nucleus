@@ -1,9 +1,15 @@
-fn add_two_with(number: i32): u32 
-{
-	return number + 2;
+fn calculate_fib(n: i32): i32 {
+
+	pure n_minus_one: i32 = n - 1;
+	pure n_minus_two: i32 = n - 2;
+	
+	if compare.is_less_than_or_equals(n, 1) {
+		return load n;
+	};
+
+	return calculate_fib(n_minus_one) + calculate_fib(n_minus_two);
 }
 
-fn main(): u32
-{
-	return add_two_with(2);
+fn main(): i32 {
+	return calculate_fib(15);
 }

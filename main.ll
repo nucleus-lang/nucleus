@@ -1,14 +1,36 @@
-; ModuleID = 'Nucleus'
+; ModuleID = 'main.ll'
 source_filename = "Nucleus"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-w64-windows-gnu"
 
-define i32 @add_two_with(i32 %number) {
+; Function Attrs: nofree nosync nounwind readnone
+define i32 @calculate_fib(i32 %n) local_unnamed_addr #0 {
 entry:
-  %addtmp = add i32 %number, 2
-  ret i32 %addtmp
+  %cmptmp1 = icmp ult i32 %n, 2
+  br i1 %cmptmp1, label %common.ret, label %continue
+
+common.ret:                                       ; preds = %continue, %entry
+  %accumulator.tr.lcssa = phi i32 [ 0, %entry ], [ %addtmp, %continue ]
+  %n.tr.lcssa = phi i32 [ %n, %entry ], [ %subtmp1, %continue ]
+  %accumulator.ret.tr = add i32 %n.tr.lcssa, %accumulator.tr.lcssa
+  ret i32 %accumulator.ret.tr
+
+continue:                                         ; preds = %entry, %continue
+  %n.tr3 = phi i32 [ %subtmp1, %continue ], [ %n, %entry ]
+  %accumulator.tr2 = phi i32 [ %addtmp, %continue ], [ 0, %entry ]
+  %subtmp1 = add i32 %n.tr3, -2
+  %subtmp = add i32 %n.tr3, -1
+  %calltmp = tail call i32 @calculate_fib(i32 %subtmp)
+  %addtmp = add i32 %calltmp, %accumulator.tr2
+  %cmptmp = icmp ult i32 %subtmp1, 2
+  br i1 %cmptmp, label %common.ret, label %continue
 }
 
-define i32 @main() {
+; Function Attrs: nofree nosync nounwind readnone
+define i32 @main() local_unnamed_addr #0 {
 entry:
-  %calltmp = call i32 @add_two_with(i32 2)
+  %calltmp = tail call i32 @calculate_fib(i32 15)
   ret i32 %calltmp
 }
+
+attributes #0 = { nofree nosync nounwind readnone }

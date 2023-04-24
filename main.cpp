@@ -17,6 +17,8 @@ std::unordered_map<std::string, bool> Parser::vars_with_nothing;
 std::unordered_map<std::string, bool> Parser::verified_allocs;
 std::pair<std::string, std::string> Parser::current_function_in_scope;
 
+bool Parser::dont_share_history = false;
+
 void CompileToLLVMIR()
 {
 	std::ifstream t("main.nk");

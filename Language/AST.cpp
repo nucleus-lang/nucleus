@@ -9,6 +9,8 @@ std::string AST::CurrentIdentifier;
 std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 AST::Type* AST::current_proto_type = nullptr;
 
+llvm::Value* GetInst(AST::Expression* v);
+
 llvm::Value* AST::Expression::codegenOnlyLoad()
 {
 	onlyLoad = true;
@@ -91,7 +93,7 @@ llvm::Value* AST::Call::codegen()
 
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
-		llvm::Value* argCG = Args[i]->codegen();
+		llvm::Value* argCG = GetInst(Args[i].get());
 		if (!argCG) CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n");
 
 		ArgsV.push_back(argCG);
@@ -185,7 +187,16 @@ llvm::Value* AST::Variable::codegen()
 
 			llvm::Argument* V3 = CodeGen::NamedArguments[Name].first;
 
-			if(!V3) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+			if(!V3) {
+
+				llvm::Value* V4 = CodeGen::NamedPures[Name];
+
+				if(!V4) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+
+				AST::CurrentIdentifier = Name;
+
+				return V4;
+			}
 
 			AST::CurrentIdentifier = Name;
 
@@ -263,6 +274,9 @@ llvm::Value* GetInst(AST::Expression* v)
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr) return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
 
+	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
+		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
+
 	return CreateAutoLoad(v);
 }
 
@@ -270,6 +284,7 @@ void AddInst(std::string target_name, llvm::Value* r)
 {	
 	if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end()) CodeGen::NamedLoads[target_name].second = r;
 	else if (CodeGen::NamedArguments.find(target_name) != CodeGen::NamedArguments.end()) CodeGen::NamedArguments[target_name].second = r;
+	else if (CodeGen::NamedPures.find(target_name) != CodeGen::NamedPures.end()) CodeGen::NamedPures[target_name] = r;
 	else CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()");
 }
 
@@ -371,7 +386,9 @@ llvm::Value* AST::Add::codegen()
 	}
 	else Result = CodeGen::Builder->CreateFAdd(L, R, "addtmp");
 
-	AddInst(target_name, Result);
+	if(!dont_share_history)
+		AddInst(target_name, Result);
+
 	AST::CurrInst = Result;
 
 	return Result;
@@ -386,10 +403,18 @@ llvm::Value* AST::Sub::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	if (IsIntegerType(L) && IsIntegerType(R)) Result = CodeGen::Builder->CreateSub(L, R, "subtmp");
+	if (IsIntegerType(L) && IsIntegerType(R)) 
+	{
+		// if(!Target->is_unsigned)
+			Result = CodeGen::Builder->CreateSub(L, R, "subtmp");
+		// else
+		//	CodeGen::Error("TODO: Add Unsigned Integer System for Sub-tracting...");
+	}
 	else Result = CodeGen::Builder->CreateFSub(L, R, "subtmp");
 
-	AddInst(target_name, Result);
+	if(!dont_share_history)
+		AddInst(target_name, Result);
+
 	AST::CurrInst = Result;
 
 	return Result;
@@ -466,6 +491,95 @@ llvm::Value* AST::VerifyOne::codegen()
 	return Target->codegen();
 }
 
+llvm::Value* AST::Compare::codegen()
+{
+	llvm::Value* L = GetInst(A.get());
+	llvm::Value* R = GetInst(B.get());
+
+	llvm::Value* Result = nullptr;
+
+	if (IsIntegerType(L) && IsIntegerType(R))
+	{
+		if     (cmp_type == 0) Result = CodeGen::Builder->CreateICmpUGT(R, L, "cmptmp");
+		else if(cmp_type == 1) Result = CodeGen::Builder->CreateICmpUGT(L, R, "cmptmp");
+		else if(cmp_type == 2) Result = CodeGen::Builder->CreateICmpEQ(L, R, "cmptmp");
+		else if(cmp_type == 3) Result = CodeGen::Builder->CreateICmpNE(L, R, "cmptmp");
+		else if(cmp_type == 4) Result = CodeGen::Builder->CreateICmpUGE(R, L, "cmptmp");
+		else if(cmp_type == 5) Result = CodeGen::Builder->CreateICmpUGE(L, R, "cmptmp");
+
+		return CodeGen::Builder->CreateIntCast(Result, llvm::Type::getInt1Ty(*CodeGen::TheContext), false, "booltmp");
+	}
+
+	CodeGen::Error("A Compare CodeGen returned nullptr.");
+	return nullptr;
+}
+
+llvm::Value* AST::If::codegen()
+{
+	llvm::Value* ConditionV = Condition->codegen();
+	if(ConditionV == nullptr) CodeGen::Error("Condition caught an internal error in If CodeGen.");
+
+	llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
+
+	llvm::BasicBlock* IfBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, "if", TheFunction);
+	llvm::BasicBlock* ElseBlock = 		nullptr;
+	llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
+
+	bool push_continue_block = true;
+
+	if(ElseBody.size() != 0)
+	{
+		ElseBlock = llvm::BasicBlock::Create(*CodeGen::TheContext, "else");
+		CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ElseBlock);
+		push_continue_block = false;
+	}
+	else CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
+
+	CodeGen::Builder->SetInsertPoint(IfBlock);
+
+	for(auto const& i: IfBody)
+		i->codegen();
+	
+	if(/*!dynamic_cast<AST::Return*>(IfBody[IfBody.size() - 1].get()) &&*/ !uncontinue)
+	{
+		push_continue_block = true;
+		CodeGen::Builder->CreateBr(ContinueBlock);
+	}
+	else { push_continue_block = false; }
+
+	if(ElseBody.size() != 0)
+	{
+		TheFunction->getBasicBlockList().push_back(ElseBlock);
+		CodeGen::Builder->SetInsertPoint(ElseBlock);
+
+		for(auto const& i: ElseBody)
+			i->codegen();
+
+		if(/*!dynamic_cast<AST::Return*>(ElseBody[ElseBody.size() - 1].get()) &&*/ !uncontinue)
+		{
+			push_continue_block = true;
+			CodeGen::Builder->CreateBr(ContinueBlock);
+		}
+		else { push_continue_block = false; }
+	}
+	
+	if(/*push_continue_block &&*/ !uncontinue)
+	{
+		TheFunction->getBasicBlockList().push_back(ContinueBlock);
+		CodeGen::Builder->SetInsertPoint(ContinueBlock);
+	}
+
+	return nullptr;
+}
+
+llvm::Value* AST::Pure::codegen()
+{
+	auto R = Inst->codegen();
+	CodeGen::NamedPures[Name] = R;
+
+	return R;
+}
+
 llvm::Function* AST::Prototype::codegen()
 {
 	std::vector<llvm::Type*> llvmArgs;
@@ -499,6 +613,7 @@ llvm::Function* AST::Function::codegen()
 	CodeGen::NamedValues.clear();
 	CodeGen::NamedArguments.clear();
 	CodeGen::NamedLoads.clear();
+	CodeGen::NamedPures.clear();
 
 	if (Proto == nullptr)
 		CodeGen::Error("Function prototype is nullptr.\n");

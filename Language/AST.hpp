@@ -38,6 +38,10 @@ struct AST
 
 		bool is_unsigned = true;
 
+		bool uncontinue = false;
+
+		bool dont_share_history = false;
+
 		llvm::Value* codegenOnlyLoad();
 
 		llvm::Value* CurrentInstruction();
@@ -109,6 +113,8 @@ struct AST
 		std::string Name;
 
 		std::unique_ptr<Type> T;
+
+		bool is_argument = false;
 
 		Variable(std::unique_ptr<Type> T, const std::string& Name) : T(std::move(T)), Name(Name) {}
 
@@ -188,6 +194,18 @@ struct AST
 		llvm::Value* codegen() override;
 	};
 
+	struct Pure : public Expression
+	{
+		std::string Name;
+		std::unique_ptr<Type> T;
+		std::unique_ptr<Expression> Inst;
+
+		Pure(std::string Name, std::unique_ptr<Type> T, std::unique_ptr<Expression> Inst) :
+			Name(Name), T(std::move(T)), Inst(std::move(Inst)) {}
+
+		llvm::Value* codegen() override;
+	};
+
 	struct VerifyOne : public Expression
 	{
 		std::unique_ptr<Expression> Target;
@@ -200,6 +218,30 @@ struct AST
 	struct Nothing : public Expression
 	{
 		llvm::Value* codegen() override;
+	};
+
+	struct Compare : public Expression
+	{
+		std::unique_ptr<Expression> A;
+		std::unique_ptr<Expression> B;
+		int cmp_type;
+
+		Compare(std::unique_ptr<Expression> A, std::unique_ptr<Expression> B, int cmp_type) :
+		A(std::move(A)), B(std::move(B)), cmp_type(cmp_type) {}
+
+		llvm::Value* codegen() override;
+	};
+
+	struct If : public Expression
+	{
+		std::unique_ptr<Expression> Condition;
+		std::vector<std::unique_ptr<Expression>> IfBody;
+		std::vector<std::unique_ptr<Expression>> ElseBody;
+
+		If(std::unique_ptr<Expression> Condition, std::vector<std::unique_ptr<Expression>> IfBody, std::vector<std::unique_ptr<Expression>> ElseBody) :
+			Condition(std::move(Condition)), IfBody(std::move(IfBody)), ElseBody(std::move(ElseBody)) {}
+
+		llvm::Value * codegen() override;
 	};
 
 	struct Prototype 
