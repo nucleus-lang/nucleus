@@ -54,6 +54,7 @@ struct CodeGen
 	static std::map<std::string, llvm::AllocaInst*> NamedValues;
 	static std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> NamedLoads;
 	static std::map<std::string, llvm::Value*> NamedPures;
+	static std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> NamedPHILoads;
 	static std::map<std::string, std::pair<llvm::Argument*, llvm::Value*>> NamedArguments;
 	static std::map<std::string, llvm::Value*> CurrentInst;
 

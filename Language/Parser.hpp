@@ -397,6 +397,8 @@ struct Parser
 					Lexer::GetNextToken();
 					break;
 				}
+
+				Lexer::GetNextToken();
 			}
 
 			if(Lexer::CurrentToken == ')') Lexer::GetNextToken();
@@ -430,7 +432,38 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::Compare) return ParseCompare();
 		else if (Lexer::CurrentToken == Token::If) return ParseIf();
 		else if (Lexer::CurrentToken == Token::Pure) return ParsePure();
-		else  return AST::ExprError("Unknown token when expecting an expression.");
+		else if (Lexer::CurrentToken == Token::While) return ParseWhile();
+		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseWhile()
+	{
+		Lexer::GetNextToken();
+
+		auto Cond = ParseExpression();
+
+		if(Lexer::CurrentToken != '{') AST::ExprError("Expected '{'.");
+
+		Lexer::GetNextToken();
+
+		ARGUMENT_LIST() Body;
+
+		while (Lexer::CurrentToken != '}') {
+			if (auto E = ParseExpression()) Body.push_back(std::move(E));
+
+			if (Lexer::CurrentToken != ';') AST::ExprError("Expected ';' inside of while block.");
+			else ResetTarget();
+			
+			Lexer::GetNextToken();
+		}
+
+		//Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '}') AST::ExprError("Expected '}'.");
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::Loop>("while", std::move(Cond), std::move(Body));
 	}
 
 	static std::unique_ptr<AST::Expression> ParsePure()

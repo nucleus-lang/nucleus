@@ -1,12 +1,26 @@
-fn calculate_fib(n: i32): i32 {
-	
-	if compare.is_less_than_or_equals(n, 1) {
-		return load n;
-	};
-
-	return calculate_fib(n - 1) + calculate_fib(n - 2);
-}
+# fn calculate_fib(n: i32): i32 {
+# 	if compare.is_less_than_or_equals(n, 1) {
+# 		return load n;
+# 	};
+# 
+# 	return calculate_fib(n - 1) + calculate_fib(n - 2);
+# }
 
 fn main(): i32 {
-	return calculate_fib(30);
+	# return calculate_fib(30);
+
+	var core: i32 = 0;
+
+	load snake_x: i32 = core;
+	load snake_y: i32 = core;
+
+	while compare.is_less_than(snake_y, 100) {
+
+		snake_x += 100;
+		snake_y += 1;
+
+	};
+
+	snake_x += 0;
+	return load snake_x;
 }

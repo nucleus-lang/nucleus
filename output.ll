@@ -1,26 +1,25 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-define i32 @calculate_fib(i32 %n) {
-entry:
-  %subtmp = sub i32 %n, 1
-  %subtmp1 = sub i32 %n, 2
-  %cmptmp = icmp uge i32 1, %n
-  br i1 %cmptmp, label %if, label %continue
-
-if:                                               ; preds = %entry
-  ret i32 %n
-  br label %continue
-
-continue:                                         ; preds = %if, %entry
-  %calltmp = call i32 @calculate_fib(i32 %subtmp)
-  %calltmp2 = call i32 @calculate_fib(i32 %subtmp1)
-  %addtmp = add i32 %calltmp, %calltmp2
-  ret i32 %addtmp
-}
-
 define i32 @main() {
 entry:
-  %calltmp = call i32 @calculate_fib(i32 30)
-  ret i32 %calltmp
+  %core = alloca i32, align 4
+  store i32 0, ptr %core, align 4
+  %snake_x = load i32, ptr %core, align 4
+  %snake_y = load i32, ptr %core, align 4
+  %cmptmp = icmp ugt i32 100, %snake_y
+  br i1 %cmptmp, label %while, label %continue
+
+while:                                            ; preds = %while, %entry
+  %phi = phi i32 [ %addtmp, %while ], [ %snake_x, %entry ]
+  %phi1 = phi i32 [ %addtmp2, %while ], [ %snake_y, %entry ]
+  %addtmp = add i32 %phi, 100
+  %addtmp2 = add i32 %phi1, 1
+  %cmptmp3 = icmp ugt i32 100, %addtmp2
+  br i1 %cmptmp3, label %while, label %continue
+
+continue:                                         ; preds = %while, %entry
+  %phi4 = phi i32 [ %snake_x, %entry ], [ %addtmp, %while ]
+  %addtmp5 = add i32 %phi4, 0
+  ret i32 %addtmp5
 }

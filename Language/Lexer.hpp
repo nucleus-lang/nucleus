@@ -39,7 +39,9 @@ enum Token
 	If = -20,
 	Else = -21,
 
-	Pure = -22
+	Pure = -22,
+
+	While = -23,
 };
 
 struct Lexer
@@ -213,6 +215,8 @@ struct Lexer
 		else if (IsIdentifier("else")) return Token::Else;
 
 		else if (IsIdentifier("pure")) return Token::Pure;
+
+		else if (IsIdentifier("while")) return Token::While;
 		return Token::Identifier;
 	}
 

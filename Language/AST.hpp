@@ -245,6 +245,18 @@ struct AST
 		llvm::Value * codegen() override;
 	};
 
+	struct Loop : public Expression
+	{
+		std::string LoopName;
+		std::unique_ptr<Expression> Condition;
+		ARGUMENT_LIST() Body;
+
+		Loop(std::string LoopName, std::unique_ptr<Expression> Condition, ARGUMENT_LIST() Body) : 
+			LoopName(LoopName), Condition(std::move(Condition)), Body(std::move(Body)) {}
+
+		llvm::Value* codegen() override;
+	};
+
 	struct Prototype 
 	{
 		std::unique_ptr<AST::Type> PType;
@@ -280,6 +292,15 @@ struct AST
 
 		llvm::Function* codegen();
 	};
+};
+
+struct NucleusPHI
+{
+	llvm::PHINode* phi;
+	llvm::BasicBlock* begin;
+	llvm::BasicBlock* current;
+	std::string target_name;
+	AST::Expression* target;
 };
 
 #endif

@@ -1,36 +1,25 @@
-; ModuleID = 'main.ll'
+; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
-target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-w64-windows-gnu"
 
-; Function Attrs: nofree nosync nounwind readnone
-define i32 @calculate_fib(i32 %n) local_unnamed_addr #0 {
+define i32 @main() {
 entry:
-  %cmptmp1 = icmp ult i32 %n, 2
-  br i1 %cmptmp1, label %common.ret, label %continue
+  %core = alloca i32, align 4
+  store i32 0, ptr %core, align 4
+  %snake_x = load i32, ptr %core, align 4
+  %snake_y = load i32, ptr %core, align 4
+  %cmptmp = icmp ugt i32 100, %snake_y
+  br i1 %cmptmp, label %while, label %continue
 
-common.ret:                                       ; preds = %continue, %entry
-  %accumulator.tr.lcssa = phi i32 [ 0, %entry ], [ %addtmp, %continue ]
-  %n.tr.lcssa = phi i32 [ %n, %entry ], [ %subtmp1, %continue ]
-  %accumulator.ret.tr = add i32 %n.tr.lcssa, %accumulator.tr.lcssa
-  ret i32 %accumulator.ret.tr
+while:                                            ; preds = %while, %entry
+  %phi = phi i32 [ %addtmp, %while ], [ %snake_x, %entry ]
+  %phi1 = phi i32 [ %addtmp2, %while ], [ %snake_y, %entry ]
+  %addtmp = add i32 %phi, 100
+  %addtmp2 = add i32 %phi1, 1
+  %cmptmp3 = icmp ugt i32 100, %addtmp2
+  br i1 %cmptmp3, label %while, label %continue
 
-continue:                                         ; preds = %entry, %continue
-  %n.tr3 = phi i32 [ %subtmp1, %continue ], [ %n, %entry ]
-  %accumulator.tr2 = phi i32 [ %addtmp, %continue ], [ 0, %entry ]
-  %subtmp = add i32 %n.tr3, -1
-  %calltmp = tail call i32 @calculate_fib(i32 %subtmp)
-  %subtmp1 = add i32 %n.tr3, -2
-  %addtmp = add i32 %calltmp, %accumulator.tr2
-  %cmptmp = icmp ult i32 %subtmp1, 2
-  br i1 %cmptmp, label %common.ret, label %continue
+continue:                                         ; preds = %while, %entry
+  %phi4 = phi i32 [ %snake_x, %entry ], [ %addtmp, %while ]
+  %addtmp5 = add i32 %phi4, 0
+  ret i32 %addtmp5
 }
-
-; Function Attrs: nofree nosync nounwind readnone
-define i32 @main() local_unnamed_addr #0 {
-entry:
-  %calltmp = tail call i32 @calculate_fib(i32 30)
-  ret i32 %calltmp
-}
-
-attributes #0 = { nofree nosync nounwind readnone }
