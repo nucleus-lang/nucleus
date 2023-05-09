@@ -9,7 +9,8 @@ std::string AST::CurrentIdentifier;
 std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 AST::Type* AST::current_proto_type = nullptr;
 
-llvm::Value* CreateAutoLoad(AST::Expression* v);
+llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r);
+llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s);
 
 llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 {
@@ -23,52 +24,14 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 	{
 		if (CodeGen::NamedArguments[AST::CurrentIdentifier].second != nullptr)
 		{
-			//if(CodeGen::NamedPHILoads.find(AST::CurrentIdentifier) != CodeGen::NamedPHILoads.end() && enable_phi)
-			//{
-			//	auto P = CodeGen::Builder->CreatePHI(CodeGen::NamedArguments[AST::CurrentIdentifier].second->getType(), 2, "phi");
-//
-			//	if(CodeGen::NamedArguments[AST::CurrentIdentifier].first == nullptr)
-			//		CodeGen::Error("Core of argument '" + AST::CurrentIdentifier + "' is nullptr!");
-//
-			//	P->addIncoming(
-			//		CodeGen::NamedArguments[AST::CurrentIdentifier].first, 
-			//		CodeGen::NamedPHILoads[AST::CurrentIdentifier].first);
-//
-			//	P->addIncoming(
-			//		CodeGen::NamedArguments[AST::CurrentIdentifier].second, 
-			//		CodeGen::NamedPHILoads[AST::CurrentIdentifier].second);
-//
-			//	return P;
-			//}
-
 			return CodeGen::NamedArguments[AST::CurrentIdentifier].second;
 		}
-
-		return CodeGen::NamedArguments[AST::CurrentIdentifier].first;
 	}
 
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 	{
 		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
 		{
-			//if(CodeGen::NamedPHILoads.find(AST::CurrentIdentifier) != CodeGen::NamedPHILoads.end() && enable_phi)
-			//{
-			//	auto P = CodeGen::Builder->CreatePHI(CodeGen::NamedLoads[AST::CurrentIdentifier].second->getType(), 2, "phi");
-//
-			//	if(CodeGen::NamedLoads[AST::CurrentIdentifier].first == nullptr)
-			//		CodeGen::Error("Core of named load '" + AST::CurrentIdentifier + "' is nullptr!");
-//
-			//	P->addIncoming(
-			//		CodeGen::NamedLoads[AST::CurrentIdentifier].first, 
-			//		CodeGen::NamedPHILoads[AST::CurrentIdentifier].first);
-//
-			//	P->addIncoming(
-			//		CodeGen::NamedLoads[AST::CurrentIdentifier].second, 
-			//		CodeGen::NamedPHILoads[AST::CurrentIdentifier].second);
-//
-			//	return P;
-			//}
-
 			return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
 		}
 	}
@@ -76,7 +39,28 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
 		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
 
-	return CreateAutoLoad(v);
+	return CreateAutoLoad(v, r);
+}
+
+llvm::Value* GetCoreInst(AST::Expression* v)
+{
+	llvm::Value* r = v->codegen();
+
+	if (r == nullptr) CodeGen::Error("r is nullptr");
+
+	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return r;
+
+	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
+		return CodeGen::NamedArguments[AST::CurrentIdentifier].first;
+
+	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
+		return CodeGen::NamedLoads[AST::CurrentIdentifier].first;
+
+	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
+		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
+
+	CodeGen::Error("CoreInst not found :(");
+	return nullptr;
 }
 
 void AddInst(std::string target_name, llvm::Value* r);
@@ -175,7 +159,8 @@ llvm::Value* AST::Call::codegen()
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
 		llvm::Value* argCG = GetInst(Args[i].get());
-		if (!argCG) CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n");
+
+		if(!argCG) { CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n"); }
 
 		ArgsV.push_back(argCG);
 		if (!ArgsV.back()) CodeGen::Error("The Argument List in " + Callee + " had an internal error in the codegen.\n");
@@ -186,25 +171,9 @@ llvm::Value* AST::Call::codegen()
 
 llvm::Value* AST::Return::codegen()
 {
-	if (dynamic_cast<AST::Variable*>(Expr.get()))
-	{
-		auto I = (AST::Load*)Expr.get();
-		if (CodeGen::NamedLoads.find(I->Name) == CodeGen::NamedLoads.end())
-		{
-			llvm::Value* c = GetInst(Expr.get());
-			return CodeGen::Builder->CreateRet(c);
-		}
-
-		if (CodeGen::NamedLoads[I->Name].second == nullptr)
-		{
-			llvm::Value* c = GetInst(Expr.get());
-			return CodeGen::Builder->CreateRet(c);
-		}
-
-		return CodeGen::Builder->CreateRet(CodeGen::NamedLoads[I->Name].second);
-	}
-
 	llvm::Value* c = GetInst(Expr.get());
+	std::string target_name = AST::CurrentIdentifier;
+	c = GetPHI(target_name, Expr->codegen(), c);
 	return CodeGen::Builder->CreateRet(c);
 }
 
@@ -351,18 +320,16 @@ bool IsIntegerType(llvm::Value* V)
 	else return V->getType()->isIntegerTy();
 }
 
-llvm::Value* CreateAutoLoad(AST::Expression* v)
+llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 {
-	llvm::Value* getV = v->codegen();
+	llvm::Value* getV = r;
+
+	if(dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return getV;
+
 	llvm::Type* TV = nullptr;
 
-	if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV)) return I;
-	if (llvm::Argument* I = dyn_cast<llvm::Argument>(getV))
-	{
-		CodeGen::NamedArguments[AST::CurrentIdentifier] = std::make_pair(I, nullptr);
-
-		return I;
-	}
+	if 		(llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV)) return I;
+	else if (llvm::Argument* I = dyn_cast<llvm::Argument>(getV)) return I;
 
 	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
 	else TV = getV->getType();

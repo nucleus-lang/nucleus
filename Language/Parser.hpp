@@ -379,11 +379,12 @@ struct Parser
 			{
 				auto Expr = ParseExpression();
 				
-				if(dynamic_cast<AST::Add*>(Expr.get()) || dynamic_cast<AST::Sub*>(Expr.get()))
+				if(dynamic_cast<AST::Add*>(Expr.get()) || dynamic_cast<AST::Sub*>(Expr.get()) || dynamic_cast<AST::Call*>(Expr.get()))
 				{
 					Expr->dont_share_history = true;
 					std::string title = "autoPure" + std::to_string(Parser::random_global_id);
 					Parser::random_global_id++;
+					add_to_loads_list(title, "i32");
 					inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::make_unique<AST::i32>(), std::move(Expr)));
 					currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
 				}
@@ -480,11 +481,15 @@ struct Parser
 
 		auto T = ParseType();
 
+		std::string type = Lexer::IdentifierStr;
+
 		Lexer::GetNextToken();
 
 		if(Lexer::CurrentToken != '=') AST::ExprError("Expected '='.");
 
 		Lexer::GetNextToken();
+
+		add_to_loads_list(IdName, type);
 
 		Parser::dont_share_history = true;
 

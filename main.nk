@@ -3,24 +3,31 @@
 # 		return load n;
 # 	};
 # 
-# 	return calculate_fib(n - 1) + calculate_fib(n - 2);
+# 	pure i: i32 = calculate_fib(n - 1);
+# 	pure i2: i32 = calculate_fib(n - 2);
+# 
+# 	# return i + i2;
+# 
+# 	return i + i2;
 # }
 
+fn generate_zero(): i32 {
+	return 0;
+}
+
 fn main(): i32 {
+	
 	# return calculate_fib(30);
-
-	var core: i32 = 0;
-
-	load snake_x: i32 = core;
-	load snake_y: i32 = core;
-
-	while compare.is_less_than(snake_y, 100) {
-
-		snake_x += 100;
-		snake_y += 1;
-
+	
+	pure snake_x: i32 = generate_zero();
+	pure snake_y: i32 = generate_zero();
+	
+	while compare.is_less_than(snake_x, 100) {
+	
+		snake_x += 1;
+		snake_y += 10;
 	};
+	
+	return load snake_y;
 
-	snake_x += 0;
-	return load snake_x;
 }
