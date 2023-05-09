@@ -6,21 +6,15 @@
 # 	pure i: i32 = calculate_fib(n - 1);
 # 	pure i2: i32 = calculate_fib(n - 2);
 # 
-# 	# return i + i2;
-# 
 # 	return i + i2;
 # }
-
-fn generate_zero(): i32 {
-	return 0;
-}
 
 fn main(): i32 {
 	
 	# return calculate_fib(30);
 	
-	pure snake_x: i32 = generate_zero();
-	pure snake_y: i32 = generate_zero();
+	pure snake_x: i32 = 0 + 0;
+	pure snake_y: i32 = 0 + 0;
 	
 	while compare.is_less_than(snake_x, 100) {
 	

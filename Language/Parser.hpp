@@ -74,8 +74,8 @@ struct Parser
 		else if(type == "u64") return -64;
 		else if(type == "u128") return -128;
 
-		AST::ExprError("Cannot assign a number, boolean and/or character to a '" + type + "' variable.");
-		return 0;
+		//AST::ExprError("Cannot assign a number, boolean and/or character to a '" + type + "' variable.");
+		return 32;
 	}
 
 	static std::unique_ptr<AST::Expression> ParseNumber(bool in_return = false) 
