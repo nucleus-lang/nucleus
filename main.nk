@@ -1,27 +1,39 @@
-# fn calculate_fib(n: i32): i32 {
+# fn calculate_fib(n: i64): i64 {
 # 	if compare.is_less_than_or_equals(n, 1) {
 # 		return load n;
 # 	};
 # 
-# 	pure i: i32 = calculate_fib(n - 1);
-# 	pure i2: i32 = calculate_fib(n - 2);
+# 	pure i: i64 = calculate_fib(n - 1);
+# 	pure i2: i64 = calculate_fib(n - 2);
 # 
 # 	return i + i2;
 # }
 
-fn main(): i32 {
-	
-	# return calculate_fib(30);
-	
-	pure snake_x: i32 = 0 + 0;
-	pure snake_y: i32 = 0 + 0;
-	
-	while compare.is_less_than(snake_x, 100) {
-	
-		snake_x += 1;
-		snake_y += 10;
-	};
-	
-	return load snake_y;
+atom argument_test(b1: i64,
+				   b2: i64,
+				   b3: i64,
+				   b4: i64,
+				   b5: i64,
+				   b6: i64,
+				   b7: i64,
+				   b8: i64,
+				   b9: i64): i64 {
 
+	return b9 + b8 + b7 + b6 + b5 + b4 + b3 + b2 + b1;
+}
+
+fn main(): i64 {
+	pure board_1: i64 = 1 + 0;
+	pure board_2: i64 = 2 + 0;
+	pure board_3: i64 = 3 + 0;
+	pure board_4: i64 = 4 + 0;
+	pure board_5: i64 = 5 + 0;
+	pure board_6: i64 = 6 + 0;
+	pure board_7: i64 = 7 + 0;
+	pure board_8: i64 = 8 + 0;
+	pure board_9: i64 = 9 + 0;
+	
+ 	pure result: i64 = argument_test(board_1, board_2, board_3, board_4, board_5, board_6, board_7, board_8, board_9);
+
+ 	return load result;
 }

@@ -8,6 +8,7 @@
 
 #define NEW_TYPE(x) struct x : public Type { llvm::Type* codegen() override; }
 
+#define ATOM_ARG_LIST() std::vector<std::pair<std::string, std::unique_ptr<AST::Type>>>
 #define ARGUMENT_LIST() std::vector<std::unique_ptr<AST::Expression>>
 
 struct AST
@@ -125,6 +126,8 @@ struct AST
 	struct Return : public Expression
 	{
 		std::unique_ptr<Expression> Expr;
+
+		bool is_atom_return = false;
 
 		Return(std::unique_ptr<Expression> Expr) : Expr(std::move(Expr)) {}
 
@@ -280,6 +283,27 @@ struct AST
 	};
 
 	static std::map<std::string, std::unique_ptr<AST::Prototype>> FunctionProtos;
+
+	struct Atom : public Expression
+	{
+		std::string Name;
+		std::unique_ptr<AST::Type> AType;
+		ATOM_ARG_LIST() Args;
+		ARGUMENT_LIST() Body;
+
+		ARGUMENT_LIST() RealArgs;
+
+		Atom(std::string Name,
+			 ATOM_ARG_LIST() Args,
+			 std::unique_ptr<AST::Type> AType,
+			 ARGUMENT_LIST() Body)
+		: Name(Name), Args(std::move(Args)), AType(std::move(AType)), Body(std::move(Body)) {}
+
+		llvm::Value* codegen() override;
+	};
+
+	static std::map<std::string, std::unique_ptr<Atom>> Atoms;
+	static std::vector<Atom*> current_atom_line;
 
 	struct Function
 	{

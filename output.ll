@@ -1,19 +1,25 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-define i32 @main() {
+define i64 @calculate_fib(i64 %n) {
 entry:
-  br i1 true, label %while, label %continue
+  %cmptmp = icmp uge i64 1, %n
+  br i1 %cmptmp, label %if, label %continue
 
-while:                                            ; preds = %while, %entry
-  %phi = phi i32 [ %addtmp, %while ], [ 0, %entry ]
-  %phi1 = phi i32 [ %addtmp2, %while ], [ 0, %entry ]
-  %addtmp = add i32 %phi, 1
-  %addtmp2 = add i32 %phi1, 10
-  %cmptmp = icmp ugt i32 100, %addtmp
-  br i1 %cmptmp, label %while, label %continue
+if:                                               ; preds = %entry
+  ret i64 %n
+  br label %continue
 
-continue:                                         ; preds = %while, %entry
-  %phi3 = phi i32 [ 0, %entry ], [ %addtmp2, %while ]
-  ret i32 %phi3
+continue:                                         ; preds = %if, %entry
+  %subtmp = sub i64 %n, 1
+  %calltmp = call i64 @calculate_fib(i64 %subtmp)
+  %subtmp1 = sub i64 %n, 2
+  %calltmp2 = call i64 @calculate_fib(i64 %subtmp1)
+  %addtmp = add i64 %calltmp, %calltmp2
+  ret i64 %addtmp
+}
+
+define i64 @main() {
+entry:
+  ret i64 45
 }

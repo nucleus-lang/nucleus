@@ -12,6 +12,9 @@ AST::Type* AST::current_proto_type = nullptr;
 llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r);
 llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s);
 
+std::map<std::string, std::unique_ptr<AST::Atom>> AST::Atoms;
+std::vector<AST::Atom*> AST::current_atom_line;
+
 llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 {
 	llvm::Value* r = v->codegen();
@@ -20,12 +23,17 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 
 	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return r;
 
+	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
+		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
+
 	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
 	{
 		if (CodeGen::NamedArguments[AST::CurrentIdentifier].second != nullptr)
 		{
 			return CodeGen::NamedArguments[AST::CurrentIdentifier].second;
 		}
+
+		return CodeGen::NamedArguments[AST::CurrentIdentifier].first;
 	}
 
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
@@ -36,19 +44,13 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 		}
 	}
 
-	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
-		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
-
 	return CreateAutoLoad(v, r);
 }
 
 llvm::Value* GetCoreInst(AST::Expression* v)
 {
-	llvm::Value* r = v->codegen();
-
-	if (r == nullptr) CodeGen::Error("r is nullptr");
-
-	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return r;
+	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
+		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
 
 	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
 		return CodeGen::NamedArguments[AST::CurrentIdentifier].first;
@@ -56,11 +58,7 @@ llvm::Value* GetCoreInst(AST::Expression* v)
 	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
 		return CodeGen::NamedLoads[AST::CurrentIdentifier].first;
 
-	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
-		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
-
-	CodeGen::Error("CoreInst not found :(");
-	return nullptr;
+	return v->codegen();
 }
 
 void AddInst(std::string target_name, llvm::Value* r);
@@ -142,6 +140,36 @@ llvm::Value* AST::Nothing::codegen()
 	return nullptr;
 }
 
+llvm::Value* CreateAtomCall(std::string name, ARGUMENT_LIST() Args)
+{
+	AST::Atoms[name]->RealArgs = std::move(Args);
+
+	AST::current_atom_line.push_back(AST::Atoms[name].get());
+
+	llvm::Value* ret = nullptr;
+
+	for (auto const& i: AST::Atoms[name]->Body)
+	{
+		if (i != nullptr)
+		{
+			if(!dynamic_cast<AST::Return*>(i.get()))
+				i->codegen();
+			else {
+				auto R = dynamic_cast<AST::Return*>(i.get());
+
+				R->is_atom_return = true;
+
+				ret = R->codegen();
+			}
+		}
+	}
+
+	AST::current_atom_line.pop_back();
+
+	if(ret == nullptr) std::cout << "ret is returning nullptr!\n";
+	return ret;
+}
+
 llvm::Value* AST::Call::codegen()
 {
 	for (auto const& i: inst_before_args)
@@ -151,7 +179,12 @@ llvm::Value* AST::Call::codegen()
 	}
 
 	llvm::Function* CalleeF = CodeGen::TheModule->getFunction(Callee);
-	if (!CalleeF) CodeGen::Error("Unknown function " + Callee + " referenced.\n");
+	if (!CalleeF) {
+
+		if(AST::Atoms.find(Callee) == AST::Atoms.end()) CodeGen::Error("Unknown function " + Callee + " referenced.\n");
+
+		return CreateAtomCall(Callee, std::move(Args));
+	}
 
 	if (CalleeF->arg_size() != Args.size())
 		CodeGen::Error("Incorrect # arguments passed.\n");
@@ -159,6 +192,9 @@ llvm::Value* AST::Call::codegen()
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
 		llvm::Value* argCG = GetInst(Args[i].get());
+
+		if(argCG == nullptr)
+			argCG = Args[i]->codegen();
 
 		if(!argCG) { CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n"); }
 
@@ -173,11 +209,30 @@ llvm::Value* AST::Return::codegen()
 {
 	llvm::Value* c = GetInst(Expr.get());
 	std::string target_name = AST::CurrentIdentifier;
-	c = GetPHI(target_name, Expr->codegen(), c);
-	return CodeGen::Builder->CreateRet(c);
+	c = GetPHI(target_name, GetCoreInst(Expr.get()), c);
+
+	if(!is_atom_return)
+		return CodeGen::Builder->CreateRet(c);
+
+	return c;
 }
 
+llvm::Value* AST::Atom::codegen()
+{
+	for (auto const& i: RealArgs)
+	{
+		if (i != nullptr)
+			GetInst(i.get());
+	}
 
+	for (auto const& i: Body)
+	{
+		if (i != nullptr)
+			i->codegen();
+	}
+
+	return nullptr;
+}
 
 llvm::Value* AST::Load::codegen()
 {
@@ -247,6 +302,26 @@ llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s)
 
 llvm::Value* AST::Variable::codegen()
 {
+	if(current_atom_line.size() != 0)
+	{
+		int Idx = 0;
+		int atomIdx = current_atom_line.size() - 1;
+
+		while(atomIdx > -1)
+		{
+			for(int id = 0; id < current_atom_line[atomIdx]->Args.size(); id++) {
+
+				if(current_atom_line[atomIdx]->Args[id].first == Name) {
+					return current_atom_line[atomIdx]->RealArgs[Idx]->codegen();
+				}
+
+				Idx++;
+			}
+
+			atomIdx--;
+		}
+	}
+
 	llvm::AllocaInst* V = CodeGen::NamedValues[Name];
 
 	bool currentGPState = _getPointer;
@@ -342,9 +417,9 @@ llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 
 void AddInst(std::string target_name, llvm::Value* r)
 {
-	if (CodeGen::NamedArguments.find(target_name) != CodeGen::NamedArguments.end()) { CodeGen::NamedArguments[target_name].second = r; }
+	if (CodeGen::NamedPures.find(target_name) != CodeGen::NamedPures.end()) { CodeGen::NamedPures[target_name] = r; }
+	else if (CodeGen::NamedArguments.find(target_name) != CodeGen::NamedArguments.end()) { CodeGen::NamedArguments[target_name].second = r; }
 	else if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end()) { CodeGen::NamedLoads[target_name].second = r; }
-	else if (CodeGen::NamedPures.find(target_name) != CodeGen::NamedPures.end()) { CodeGen::NamedPures[target_name] = r; }
 	else { CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()"); }
 }
 

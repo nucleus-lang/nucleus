@@ -42,6 +42,8 @@ enum Token
 	Pure = -22,
 
 	While = -23,
+
+	Atom = -24,
 };
 
 struct Lexer
@@ -217,6 +219,10 @@ struct Lexer
 		else if (IsIdentifier("pure")) return Token::Pure;
 
 		else if (IsIdentifier("while")) return Token::While;
+
+		else if (IsIdentifier("extern")) return Token::Extern;
+
+		else if (IsIdentifier("atom")) return Token::Atom;
 		return Token::Identifier;
 	}
 

@@ -891,6 +891,8 @@ struct Parser
 		else if(Lexer::IdentifierStr == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
 		else if(Lexer::IdentifierStr == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
 
+		if(unsigned_type == nullptr) AST::ExprError("Unknown type '" + Lexer::IdentifierStr + "'.");
+
 		unsigned_type->is_unsigned = true;
 
 		return unsigned_type;
@@ -1003,6 +1005,102 @@ struct Parser
 		return std::make_unique<AST::Function>(std::move(Proto), std::move(Body));
 	}
 
+	static std::unique_ptr<AST::Prototype> ParseExtern()
+	{
+		Lexer::GetNextToken();
+		auto Proto = ParsePrototype();
+
+		if (Lexer::CurrentToken != ';') AST::ExprError("Expected ';' to end extern.");
+
+		return Proto;
+	}
+
+	static void HandleExtern()
+	{
+		if (auto ProtoAST = Parser::ParseExtern()) {
+			if (auto *FnIR = ProtoAST->codegen())
+				AST::FunctionProtos[ProtoAST->getName()] = std::move(ProtoAST);
+		}
+	}
+
+	static std::unique_ptr<AST::Atom> ParseAtom()
+	{
+		Lexer::GetNextToken();
+
+		std::string name = Lexer::IdentifierStr;
+
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '(') AST::ExprError("Expected '('.");
+
+		Lexer::GetNextToken();
+
+		ATOM_ARG_LIST() atom_args;
+
+		while(Lexer::CurrentToken == Token::Identifier || Lexer::CurrentToken == ',')
+		{
+			std::string arg_name = Lexer::IdentifierStr;
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != ':') AST::ExprError("Expected ':'.");
+
+			Lexer::GetNextToken();
+
+			auto T = ParseType();
+
+			atom_args.push_back(std::make_pair(arg_name, std::move(T)));
+
+			add_to_loads_list(arg_name, Lexer::IdentifierStr);
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != ',') break;
+
+			Lexer::GetNextToken();
+		}
+
+		if(Lexer::CurrentToken != ')') AST::ExprError("Expected ')'.");
+
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != ':') AST::ExprError("Expected ':' to specify atom type.");
+
+		Lexer::GetNextToken();
+
+		auto AtomT = ParseType();
+
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '{') AST::ExprError("Expected '{'.");
+
+		Lexer::GetNextToken();
+
+		ARGUMENT_LIST() Body;
+		while (Lexer::CurrentToken != '}') {
+			if (auto E = ParseExpression()) Body.push_back(std::move(E));
+
+			if (Lexer::CurrentToken != ';') AST::ExprError("Expected ';' inside function.");
+			else ResetTarget();
+			
+			Lexer::GetNextToken();
+		}
+
+		if(dynamic_cast<AST::If*>(Body[Body.size() - 1].get()))
+			Body[Body.size() - 1]->uncontinue = true;
+
+		return std::make_unique<AST::Atom>(name, std::move(atom_args), std::move(AtomT), std::move(Body));
+	}
+
+	static void HandleAtom()
+	{
+		if(auto AtomV = Parser::ParseAtom()) {
+
+			std::string n = AtomV->Name;
+			AST::Atoms[n] = std::move(AtomV);
+		}
+	}
+
 	static void HandleFunction()
 	{
 		// std::cout << "Parsed a Function!\n";
@@ -1019,8 +1117,10 @@ struct Parser
 		{
 			Lexer::GetNextToken();
 
-			if (Lexer::CurrentToken == Token::EndOfFile) break;
-			if (Lexer::CurrentToken == Token::Function) HandleFunction();
+			if (Lexer::CurrentToken == Token::EndOfFile) 	break;
+			if (Lexer::CurrentToken == Token::Function) 	HandleFunction();
+			if (Lexer::CurrentToken == Token::Extern) 		HandleExtern();
+			if (Lexer::CurrentToken == Token::Atom) 		HandleAtom();
 		}
 	}
 };
