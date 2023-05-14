@@ -407,7 +407,7 @@ llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 	else if (llvm::Argument* I = dyn_cast<llvm::Argument>(getV)) return I;
 
 	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
-	else TV = getV->getType();
+	else return getV;
 
 	auto L = CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
 	CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(L, nullptr);
