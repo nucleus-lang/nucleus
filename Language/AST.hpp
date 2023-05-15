@@ -8,6 +8,9 @@
 
 #define NEW_TYPE(x) struct x : public Type { llvm::Type* codegen() override; }
 
+#define MAP_FOREACH(x, y, z, w) for(std::map<x, y>::iterator w = z.begin(); w != z.end(); ++w)
+#define MAP_FOREACH_PAIR(x, y1, y2, z, w) for(std::map<x, std::pair<y1, y2>>::iterator w = z.begin(); w != z.end(); ++w)
+
 #define ATOM_ARG_LIST() std::vector<std::pair<std::string, std::unique_ptr<AST::Type>>>
 #define ARGUMENT_LIST() std::vector<std::unique_ptr<AST::Expression>>
 
@@ -304,6 +307,7 @@ struct AST
 
 	static std::map<std::string, std::unique_ptr<Atom>> Atoms;
 	static std::vector<Atom*> current_atom_line;
+	static bool is_inside_atom;
 
 	struct Function
 	{

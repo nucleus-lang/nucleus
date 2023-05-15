@@ -1,28 +1,41 @@
-# fn calculate_fib(n: i32): i32 {
+# atom calculate_fib(n: i32): i32 {
 # 	if compare.is_less_than_or_equals(n, 1) {
 # 		return load n;
 # 	};
 # 
-# 	pure i: i32 = calculate_fib(n - 1);
-# 	pure i2: i32 = calculate_fib(n - 2);
+# 	pure r1: i32 = n - 1;
+# 	pure r2: i32 = n - 2;
+# 
+# 	pure i: i32 = calculate_fib(r1);
+# 	pure i2: i32 = calculate_fib(r2);
 # 
 # 	return i + i2;
 # }
 
-atom add_two(i: i32): i32 {
+atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
-	pure res: i32 = i + 2;
-	return load res;
-}
+	if compare.is_more_than(a, b) {
+		a += 10;
+	} else {
+		a += 2;
+	};
 
-atom add_one(i: i32): i32 {
-	
-	pure do_math: i32 = i + 1;
-	pure res_one: i32 = add_two(do_math);
-	return load res_one;
+	return load a;
 }
 
 fn main(): i32 {
-	pure final_res: i32 = add_one(2);
-	return load final_res;
+	
+	pure u: i32 = 0 + 0;
+	pure a: i32 = 2 + 0;
+	pure b: i32 = 6 + 0;
+
+	if compare.is_more_than(a, b) {
+		u += 10;
+	} else {
+		u += 2;
+	};
+
+	u += 3;
+
+	return load u;
 }
