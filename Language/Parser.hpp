@@ -239,6 +239,15 @@ struct Parser
 			}
 			else
 			{
+				if(dynamic_cast<AST::Pure*>(L.get()) && dynamic_cast<AST::Number*>(R.get()))
+				{
+					auto A = std::make_unique<AST::Add>(std::move(L), std::move(R));
+					A->dont_share_history = Parser::dont_share_history;
+
+					return ParseBinaryOperator(std::move(A));
+				}
+
+
 				// auto get_r = dynamic_cast<AST::Number*>(R.get());
 				// int32_t r_i32;
 				// if (get_r->isInt) r_i32 = get_r->return_i32();

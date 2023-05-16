@@ -14,28 +14,22 @@
 
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
+	pure r: i32 = 0;
 	if compare.is_more_than(a, b) {
-		a += 10;
+		r += 10;
 	} else {
-		a += 2;
+		r += 2;
 	};
 
-	return load a;
+	return load r;
 }
 
 fn main(): i32 {
 	
-	pure u: i32 = 0 + 0;
-	pure a: i32 = 2 + 0;
-	pure b: i32 = 6 + 0;
+	pure a1: i32 = 15;
+	pure a2: i32 = 6;
 
-	if compare.is_more_than(a, b) {
-		u += 10;
-	} else {
-		u += 2;
-	};
+	pure result: i32 = check_if_bigger_than(a1, a2);
 
-	u += 3;
-
-	return load u;
+	return load result;
 }
