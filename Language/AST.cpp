@@ -800,7 +800,7 @@ llvm::Value* AST::If::codegen()
 	llvm::BasicBlock* curr;
 	
 	if(ElseBlock != nullptr) curr = ElseBlock;
-	else curr = ContinueBlock;
+	else curr = EntryBlock;
 	
 	ifelse_set_phis(IfEntryValues, ElseEntryValues, IfBlock, curr);
 
