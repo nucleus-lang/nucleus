@@ -696,13 +696,20 @@ llvm::Value* generate_individual_ifelse_phi(
 	llvm::Value* core, llvm::Value* l, llvm::Value* r,
 	llvm::BasicBlock* FirstBB, llvm::BasicBlock* SecondBB) {
 
+	if(core == r)
+		return r;
+
 	auto phi = CodeGen::Builder->CreatePHI(core->getType(), 2, "phi");
 
 	if(!l) std::cout << "l is nullptr\n";
 	if(!r) std::cout << "r is nullptr\n";
 
 	phi->addIncoming(l, FirstBB);
-	phi->addIncoming(r, SecondBB);
+
+	if(l != r)
+		phi->addIncoming(r, SecondBB);
+	else
+		phi->addIncoming(core, SecondBB);
 
 	return phi;
 }

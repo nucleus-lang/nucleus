@@ -1,25 +1,30 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-define i64 @calculate_fib(i64 %n) {
+define i32 @check_if_bigger_than(i32 %a, i32 %b) {
 entry:
-  %cmptmp = icmp uge i64 1, %n
+  %cmptmp = icmp ugt i32 %a, %b
   br i1 %cmptmp, label %if, label %continue
 
 if:                                               ; preds = %entry
-  ret i64 %n
   br label %continue
 
 continue:                                         ; preds = %if, %entry
-  %subtmp = sub i64 %n, 1
-  %calltmp = call i64 @calculate_fib(i64 %subtmp)
-  %subtmp1 = sub i64 %n, 2
-  %calltmp2 = call i64 @calculate_fib(i64 %subtmp1)
-  %addtmp = add i64 %calltmp, %calltmp2
-  ret i64 %addtmp
+  %phi = phi i32 [ 10, %if ], [ 0, %entry ]
+  %cmptmp1 = icmp ugt i32 %a, 30
+  br i1 %cmptmp1, label %if2, label %continue3
+
+if2:                                              ; preds = %continue
+  %addtmp = add i32 %phi, 5
+  br label %continue3
+
+continue3:                                        ; preds = %if2, %continue
+  %phi4 = phi i32 [ %addtmp, %if2 ], [ %phi, %continue ]
+  ret i32 %phi4
 }
 
-define i64 @main() {
+define i32 @main() {
 entry:
-  ret i64 45
+  %calltmp = call i32 @check_if_bigger_than(i32 15, i32 6)
+  ret i32 %calltmp
 }
