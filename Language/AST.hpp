@@ -309,16 +309,29 @@ struct AST
 	static std::vector<Atom*> current_atom_line;
 	static bool is_inside_atom;
 
+	struct FunctionAttributes {
+
+		bool can_return_null = false;
+		bool has_to_free_memory = false;
+		bool will_return = true;
+		bool prints_exceptions_at_runtime = false;
+		bool must_progress = true;
+	};
+
 	struct Function
 	{
 		std::unique_ptr<Prototype> Proto;
 		std::vector<std::unique_ptr<Expression>> Body;
+
+		FunctionAttributes attributes;
 
 		Function(std::unique_ptr<Prototype> Proto,
 			std::vector<std::unique_ptr<Expression>> Body)
 		: Proto(std::move(Proto)), Body(std::move(Body)) {}
 
 		llvm::Function* codegen();
+
+		llvm::Function* apply_attributes(llvm::Function* f);
 	};
 };
 

@@ -1,7 +1,8 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-define i32 @main() {
+; Function Attrs: nofree nounwind willreturn
+define i32 @main() #0 {
 entry:
   br i1 true, label %if, label %continue
 
@@ -28,3 +29,5 @@ continue6:                                        ; preds = %continue3, %continu
   %phi7 = phi i32 [ %addtmp5, %continue3 ], [ %phi, %continue ]
   ret i32 %phi7
 }
+
+attributes #0 = { nofree nounwind willreturn }

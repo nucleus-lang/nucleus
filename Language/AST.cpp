@@ -1066,6 +1066,17 @@ llvm::Function* AST::Prototype::codegen()
 	return F;
 }
 
+llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
+
+	//if(!attributes.can_return_null) 				{ f->addRetAttr(llvm::Attribute::NonNull); }
+	if(!attributes.has_to_free_memory) 				{ f->addFnAttr(llvm::Attribute::NoFree); }
+	if(attributes.will_return)						{ f->addFnAttr(llvm::Attribute::WillReturn); }
+	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
+	//if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute); }
+
+	return f;
+}
+
 llvm::Function* AST::Function::codegen()
 {
 
@@ -1098,6 +1109,8 @@ llvm::Function* AST::Function::codegen()
 		if (i != nullptr)
 			i->codegen();
 	}
+
+	TheFunction = apply_attributes(TheFunction);
 
 	return TheFunction;
 }

@@ -15,16 +15,14 @@
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
 	pure r: i32 = 0;
-	pure r2: i32 = 30;
-	pure r3: i32 = 16;
 
 	if compare.is_more_than(a, b) {
 		r += 10;
 	};
 
-	if compare.is_more_than(a, r2) {
+	if compare.is_more_than(a, 30) {
 
-		if compare.is_equals(a, r3) {
+		if compare.is_equals(a, 16) {
 			r += 5;
 		};
 		
