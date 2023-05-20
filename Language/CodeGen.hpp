@@ -43,6 +43,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/CFG.h"
 #include <map>
 
 struct CodeGen
@@ -56,8 +57,14 @@ struct CodeGen
 	static std::map<std::string, llvm::Value*> NamedPures;
 	static std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> NamedPHILoads;
 	static std::map<std::string, std::pair<llvm::Argument*, llvm::Value*>> NamedArguments;
+
+	static std::vector<llvm::BasicBlock*> allBasicBlocks;
 	
 	static std::map<std::string, llvm::Value*> CurrentInst;
+
+	static void push_block_to_list(llvm::BasicBlock* bb);
+
+	static llvm::BasicBlock* get_last_bb_used_by(llvm::Value* v);
 
 	static void Initialize();
 

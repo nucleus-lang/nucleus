@@ -704,12 +704,54 @@ llvm::Value* generate_individual_ifelse_phi(
 	if(!l) std::cout << "l is nullptr\n";
 	if(!r) std::cout << "r is nullptr\n";
 
-	phi->addIncoming(l, FirstBB);
+	llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
+
+	std::vector<llvm::BasicBlock*> blockPreds;
+
+	llvm::BasicBlock* B = CodeGen::Builder->GetInsertBlock();
+	for (auto it = llvm::pred_begin(B), et = llvm::pred_end(B); it != et; ++it)
+	{
+		llvm::BasicBlock* predecessor = *it;
+
+		blockPreds.push_back(predecessor);
+	}
+
+	llvm::BasicBlock* leftBB = nullptr;
+	llvm::BasicBlock* rightBB = nullptr;
+	llvm::BasicBlock* coreBB = nullptr;
+
+	if(blockPreds.size() == 2) {
+		leftBB = blockPreds[0];
+		rightBB = blockPreds[1];
+		coreBB = blockPreds[1];
+	}
+	else 
+	{
+		if(dyn_cast<llvm::Instruction>(l)) {
+			auto e = dyn_cast<llvm::Instruction>(l);
+			leftBB = e->getParent();
+		}
+		else { leftBB = FirstBB; }
+
+		if(dyn_cast<llvm::Instruction>(r)) {
+			auto e = dyn_cast<llvm::Instruction>(r);
+			rightBB = e->getParent();
+		}
+		else { rightBB = SecondBB; }
+
+		if(dyn_cast<llvm::Instruction>(core)) {
+			auto e = dyn_cast<llvm::Instruction>(core);
+			coreBB = e->getParent();
+		}
+		else { coreBB = SecondBB; }
+	}
+
+	phi->addIncoming(l, leftBB);
 
 	if(l != r)
-		phi->addIncoming(r, SecondBB);
+		phi->addIncoming(r, rightBB);
 	else
-		phi->addIncoming(core, SecondBB);
+		phi->addIncoming(core, coreBB);
 
 	return phi;
 }
@@ -755,11 +797,17 @@ llvm::Value* AST::If::codegen()
 	llvm::BasicBlock* ElseBlock = 		nullptr;
 	llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
 
+	//CodeGen::push_block_to_list(IfBlock);
+	//CodeGen::push_block_to_list(ContinueBlock);
+
 	bool push_continue_block = true;
 
 	if(ElseBody.size() != 0)
 	{
 		ElseBlock = llvm::BasicBlock::Create(*CodeGen::TheContext, "else");
+
+		//CodeGen::push_block_to_list(ElseBlock);
+
 		CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ElseBlock);
 		push_continue_block = false;
 	}
@@ -963,6 +1011,9 @@ llvm::Value* AST::Loop::codegen()
 	llvm::BasicBlock* LoopBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, LoopName.c_str(), TheFunction);
 	llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
 
+	//CodeGen::push_block_to_list(LoopBlock);
+	//CodeGen::push_block_to_list(ContinueBlock);
+
 	CodeGen::Builder->CreateCondBr(ConditionV, LoopBlock, ContinueBlock);
 
 	CodeGen::Builder->SetInsertPoint(LoopBlock);
@@ -1024,6 +1075,8 @@ llvm::Function* AST::Function::codegen()
 	CodeGen::NamedLoads.clear();
 	CodeGen::NamedPures.clear();
 
+	CodeGen::allBasicBlocks.clear();
+
 	if (Proto == nullptr)
 		CodeGen::Error("Function prototype is nullptr.\n");
 
@@ -1036,6 +1089,8 @@ llvm::Function* AST::Function::codegen()
 	llvm::Function* TheFunction = CodeGen::GetFunction(P.getName());
 
 	llvm::BasicBlock* BB = llvm::BasicBlock::Create(*CodeGen::TheContext, "entry", TheFunction);
+	//CodeGen::push_block_to_list(BB);
+
 	CodeGen::Builder->SetInsertPoint(BB);
 
 	for (auto const& i: Body)

@@ -18,6 +18,29 @@ std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> CodeGen::
 std::map<std::string, std::pair<llvm::Argument*, llvm::Value*>> CodeGen::NamedArguments;
 std::map<std::string, llvm::Value*> CodeGen::CurrentInst;
 
+std::vector<llvm::BasicBlock*> CodeGen::allBasicBlocks;
+
+void CodeGen::push_block_to_list(llvm::BasicBlock* bb) {
+
+	CodeGen::allBasicBlocks.push_back(bb);
+}
+
+llvm::BasicBlock* CodeGen::get_last_bb_used_by(llvm::Value* v) {
+
+	for (int i = CodeGen::allBasicBlocks.size() - 1; i > -1; i--)
+	{
+		if(CodeGen::allBasicBlocks[i] == nullptr) {
+			std::cout << i << " is nullptr\n";
+			continue;
+		}
+
+		if(v->isUsedInBasicBlock(CodeGen::allBasicBlocks[i]))
+			return CodeGen::allBasicBlocks[i];
+	}
+
+	return nullptr;
+}
+
 void CodeGen::Initialize()
 {
 	// Open a new context and module.

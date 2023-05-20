@@ -1,30 +1,33 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-define i32 @check_if_bigger_than(i32 %a, i32 %b) {
+define i32 @main() {
 entry:
-  %cmptmp = icmp ugt i32 %a, %b
-  br i1 %cmptmp, label %if, label %continue
+  br i1 true, label %if, label %continue
 
 if:                                               ; preds = %entry
   br label %continue
 
 continue:                                         ; preds = %if, %entry
   %phi = phi i32 [ 10, %if ], [ 0, %entry ]
-  %cmptmp1 = icmp ugt i32 %a, 30
-  br i1 %cmptmp1, label %if2, label %continue3
+  br i1 false, label %if1, label %continue6
 
-if2:                                              ; preds = %continue
+if1:                                              ; preds = %continue
+  br i1 false, label %if2, label %else
+
+if2:                                              ; preds = %if1
   %addtmp = add i32 %phi, 5
-  br label %continue3
+  br label %continue4
 
-continue3:                                        ; preds = %if2, %continue
-  %phi4 = phi i32 [ %addtmp, %if2 ], [ %phi, %continue ]
-  ret i32 %phi4
-}
+else:                                             ; preds = %if1
+  %addtmp3 = add i32 %phi, 3
+  br label %continue4
 
-define i32 @main() {
-entry:
-  %calltmp = call i32 @check_if_bigger_than(i32 15, i32 6)
-  ret i32 %calltmp
+continue4:                                        ; preds = %else, %if2
+  %phi5 = phi i32 [ %addtmp, %if2 ], [ %addtmp3, %else ]
+  br label %continue6
+
+continue6:                                        ; preds = %continue4, %continue
+  %phi7 = phi i32 [ %phi5, %if1 ], [ %phi, %continue ]
+  ret i32 %phi7
 }
