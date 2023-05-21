@@ -432,7 +432,10 @@ struct Parser
 			{
 				auto Expr = ParseExpression();
 				
-				if(dynamic_cast<AST::Add*>(Expr.get()) || dynamic_cast<AST::Sub*>(Expr.get()) || dynamic_cast<AST::Call*>(Expr.get()))
+				if(dynamic_cast<AST::Add*>(Expr.get()) || 
+					dynamic_cast<AST::Sub*>(Expr.get()) || 
+					dynamic_cast<AST::Call*>(Expr.get()) ||
+					dynamic_cast<AST::Number*>(Expr.get()))
 				{
 					Expr->dont_share_history = true;
 					std::string title = "autoPure" + std::to_string(Parser::random_global_id);

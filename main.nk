@@ -27,9 +27,6 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 }
 
 fn main(): i32 {
-	
-	pure a1: i32 = 15;
-	pure a2: i32 = 6;
 
-	return load check_if_bigger_than(a1, a2);
+	return load check_if_bigger_than(15, 6);
 }
