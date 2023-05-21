@@ -1072,7 +1072,7 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	if(!attributes.has_to_free_memory) 				{ f->addFnAttr(llvm::Attribute::NoFree); }
 	if(attributes.will_return)						{ f->addFnAttr(llvm::Attribute::WillReturn); }
 	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
-	//if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute); }
+	if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute::MustProgress); }
 
 	return f;
 }

@@ -1,7 +1,7 @@
 ; ModuleID = 'Nucleus'
 source_filename = "Nucleus"
 
-; Function Attrs: nofree nounwind willreturn
+; Function Attrs: mustprogress nofree nounwind willreturn
 define i32 @main() #0 {
 entry:
   br i1 true, label %if, label %continue
@@ -11,10 +11,10 @@ if:                                               ; preds = %entry
 
 continue:                                         ; preds = %if, %entry
   %phi = phi i32 [ 10, %if ], [ 0, %entry ]
-  br i1 false, label %if1, label %continue6
+  br i1 true, label %if1, label %continue6
 
 if1:                                              ; preds = %continue
-  br i1 false, label %if2, label %continue3
+  br i1 true, label %if2, label %continue3
 
 if2:                                              ; preds = %if1
   %addtmp = add i32 %phi, 5
@@ -30,4 +30,4 @@ continue6:                                        ; preds = %continue3, %continu
   ret i32 %phi7
 }
 
-attributes #0 = { nofree nounwind willreturn }
+attributes #0 = { mustprogress nofree nounwind willreturn }

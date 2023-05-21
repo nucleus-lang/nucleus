@@ -202,7 +202,23 @@ struct Parser
 		if (Lexer::CurrentToken == '=')
 		{
 			Lexer::GetNextToken();
+
+			bool is_compare = false;
+
+			if (Lexer::CurrentToken == '=') { 
+				is_compare = true;
+				Lexer::GetNextToken(); 
+			}
+
 			auto R = ParseExpression();
+
+			if(is_compare) {
+
+				auto C = std::make_unique<AST::Compare>(std::move(L), std::move(R), get_compare_type("is_equals"));
+				C->dont_share_history = Parser::dont_share_history;
+
+				return ParseBinaryOperator(std::move(C));
+			}
 
 			if(dynamic_cast<AST::Nothing*>(R.get()))
 			{
@@ -337,6 +353,34 @@ struct Parser
 		//{
 		//	return AST::ExprError("Expected an operator (=, +, -, * or /).");
 		//}
+		else if(Lexer::CurrentToken == '>' || Lexer::CurrentToken == '<' || Lexer::CurrentToken == '!') 
+		{
+			std::string cmp_str = "";
+
+			bool not_equals = false;
+
+			if(Lexer::CurrentToken == '>') { cmp_str = "is_more_than"; }
+			if(Lexer::CurrentToken == '<') { cmp_str = "is_less_than"; }
+			if(Lexer::CurrentToken == '!') { cmp_str = "is_not_equals"; not_equals = true; }
+
+			Lexer::GetNextToken();
+
+			if (Lexer::CurrentToken == '=') { 
+
+				if(!not_equals) { cmp_str += "_or_equals"; }
+				Lexer::GetNextToken(); 
+			}
+			else if(not_equals) { AST::ExprError("Expected '=' to indicate 'not equals' comparison."); }
+
+			auto R = ParseExpression();
+
+			std::unique_ptr<AST::Compare> C;
+
+			C = std::make_unique<AST::Compare>(std::move(L), std::move(R), get_compare_type(cmp_str));
+			C->dont_share_history = Parser::dont_share_history;
+
+			return ParseBinaryOperator(std::move(C));
+		}
 		else if(dynamic_cast<AST::Alloca*>(L.get()) != nullptr && Lexer::CurrentToken == ';')
 		{
 			AST::Alloca* l_as_alloc = dynamic_cast<AST::Alloca*>(L.get());
@@ -595,15 +639,18 @@ struct Parser
 		return N;
 	}
 
-	static std::unique_ptr<AST::Expression> ParseCompare()
-	{
+	static void initialize_all_core_protos() {
+
 		Parser::all_prototypes["compare.is_less_than"] = "i1";
 		Parser::all_prototypes["compare.is_more_than"] = "i1";
 		Parser::all_prototypes["compare.is_equals"] = "i1";
 		Parser::all_prototypes["compare.is_not_equals"] = "i1";
 		Parser::all_prototypes["compare.is_less_than_or_equals"] = "i1";
 		Parser::all_prototypes["compare.is_more_than_or_equals"] = "i1";
+	}
 
+	static std::unique_ptr<AST::Expression> ParseCompare()
+	{
 		Lexer::GetNextToken();
 
 		if(Lexer::CurrentToken != '.') AST::ExprError("Expected '.'.");
@@ -1122,6 +1169,8 @@ struct Parser
 
 	static void MainLoop()
 	{
+		initialize_all_core_protos();
+
 		while (Lexer::CurrentToken != Token::EndOfFile)
 		{
 			Lexer::GetNextToken();
