@@ -316,6 +316,7 @@ struct AST
 		bool will_return = true;
 		bool prints_exceptions_at_runtime = false;
 		bool must_progress = true;
+		bool is_fast = true;
 	};
 
 	struct Function

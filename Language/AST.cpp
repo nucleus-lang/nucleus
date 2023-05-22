@@ -205,7 +205,10 @@ llvm::Value* AST::Call::codegen()
 		if (!ArgsV.back()) CodeGen::Error("The Argument List in " + Callee + " had an internal error in the codegen.\n");
 	}
 
-	return CodeGen::Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	auto C = CodeGen::Builder->CreateCall(CalleeF, ArgsV, "calltmp");
+	C->setCallingConv(CalleeF->getCallingConv());
+	C->setTailCall();
+	return C;
 }
 
 llvm::Value* AST::Return::codegen()
@@ -1073,6 +1076,13 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	if(attributes.will_return)						{ f->addFnAttr(llvm::Attribute::WillReturn); }
 	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
 	if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute::MustProgress); }
+
+	if(attributes.is_fast)							{ f->setCallingConv(llvm::CallingConv::Tail); 
+
+													  // TODO: Investigate about the Glasgow Haskell
+													  //	   Convention. Possible Potential.
+													  //f->setCallingConv(llvm::CallingConv::GHC); 
+													}
 
 	return f;
 }

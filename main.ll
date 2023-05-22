@@ -2,7 +2,7 @@
 source_filename = "Nucleus"
 
 ; Function Attrs: mustprogress nofree nounwind willreturn
-define i32 @main() #0 {
+define tailcc i32 @main() #0 {
 entry:
   br i1 true, label %if, label %continue
 

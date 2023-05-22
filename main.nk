@@ -1,4 +1,4 @@
-# atom calculate_fib(n: i32): i32 {
+# fn calculate_fib(n: i32): i32 {
 # 	if compare.is_less_than_or_equals(n, 1) {
 # 		return load n;
 # 	};
