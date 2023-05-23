@@ -1077,12 +1077,12 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
 	if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute::MustProgress); }
 
-	if(attributes.is_fast)							{ f->setCallingConv(llvm::CallingConv::Tail); 
+	//if(attributes.is_fast)						{ f->setCallingConv(llvm::CallingConv::Tail); 
 
 													  // TODO: Investigate about the Glasgow Haskell
 													  //	   Convention. Possible Potential.
 													  //f->setCallingConv(llvm::CallingConv::GHC); 
-													}
+	//												}
 
 	return f;
 }
