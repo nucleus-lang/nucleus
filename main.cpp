@@ -49,15 +49,18 @@ int main(int argc, char const *argv[])
 		{
 			CompileToLLVMIR();
 			CodeGen::Print();
+			TodoList::print();
 		}
 		else if (cmd == "build")
 		{
 			CompileToLLVMIR();
+			TodoList::print();
 			CodeGen::Build();
 		}
 		else if (cmd == "run")
 		{
 			CompileToLLVMIR();
+			TodoList::print();
 			CodeGen::Run();
 		}
 		else if (cmd == "create")

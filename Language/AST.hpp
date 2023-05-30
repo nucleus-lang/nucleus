@@ -263,6 +263,11 @@ struct AST
 		llvm::Value* codegen() override;
 	};
 
+	struct Todo : public Expression
+	{
+		llvm::Value* codegen() override;
+	};
+
 	struct Prototype 
 	{
 		std::unique_ptr<AST::Type> PType;

@@ -143,6 +143,12 @@ llvm::Value* AST::Nothing::codegen()
 	return nullptr;
 }
 
+llvm::Value* AST::Todo::codegen()
+{
+	CodeGen::Error("What is 'todo!' doing here in the codegen process?... what? ._.");
+	return nullptr;
+}
+
 llvm::Value* CreateAtomCall(std::string name, ARGUMENT_LIST() Args)
 {
 	AST::Atoms[name]->RealArgs = std::move(Args);
@@ -316,7 +322,7 @@ llvm::Value* AST::Variable::codegen()
 		while(atomIdx > -1)
 		{
 			for(int id = 0; id < current_atom_line[atomIdx]->Args.size(); id++) {
-
+				
 				if(current_atom_line[atomIdx]->Args[id].first == Name) {
 					return current_atom_line[atomIdx]->RealArgs[Idx]->codegen();
 				}
@@ -1087,6 +1093,11 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	return f;
 }
 
+bool can_generate_codegen(AST::Expression* i)
+{
+	return dynamic_cast<AST::Todo*>(i) == nullptr;
+}
+
 llvm::Function* AST::Function::codegen()
 {
 
@@ -1117,7 +1128,10 @@ llvm::Function* AST::Function::codegen()
 	for (auto const& i: Body)
 	{
 		if (i != nullptr)
-			i->codegen();
+		{
+			if(can_generate_codegen(i.get()))
+				i->codegen();
+		}
 	}
 
 	TheFunction = apply_attributes(TheFunction);

@@ -5,6 +5,7 @@
 #include "AST.hpp"
 #include "ErrorHandler.hpp"
 #include "StaticAnalyzer.hpp"
+#include "TodoList.hpp"
 #include <unordered_map>
 
 struct Parser
@@ -158,7 +159,6 @@ struct Parser
 	{
 		if (dynamic_cast<AST::Link*>(V.get()))
 		{
-			std::cout << "Link Instruction Found!\n";
 			AST::Link* L = (AST::Link*)V.get();
 
 			if (L->Target == nullptr) return std::make_unique<AST::VerifyOne>(std::move(L->Value));
@@ -431,20 +431,18 @@ struct Parser
 			while(Lexer::CurrentToken != ')')
 			{
 				auto Expr = ParseExpression();
-				
-				if(dynamic_cast<AST::Add*>(Expr.get()) || 
-					dynamic_cast<AST::Sub*>(Expr.get()) || 
-					dynamic_cast<AST::Call*>(Expr.get()) ||
-					dynamic_cast<AST::Number*>(Expr.get()))
-				{
-					Expr->dont_share_history = true;
-					std::string title = "autoPure" + std::to_string(Parser::random_global_id);
-					Parser::random_global_id++;
-					add_to_loads_list(title, "i32");
-					inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::make_unique<AST::i32>(), std::move(Expr)));
-					currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
-				}
-				else currentArgs.push_back(std::move(Expr));
+				Expr->dont_share_history = true;
+
+				// AUTO-PURIFIER MY BELOVED <3
+
+				std::string title = "autoPure" + std::to_string(Parser::random_global_id);
+				Parser::random_global_id++;
+
+				std::string get_type = get_type_from_variable(Parser::last_target);
+
+				add_to_loads_list(title, get_type);
+				inst_before_arg.push_back(std::make_unique<AST::Pure>(title, ParseType(get_type), std::move(Expr)));
+				currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
 
 				if(Lexer::CurrentToken != ',' && Lexer::CurrentToken != ')')
 					return AST::ExprError("Expected ',' or ')' after identifier.");
@@ -490,7 +488,26 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::If) return ParseIf();
 		else if (Lexer::CurrentToken == Token::Pure) return ParsePure();
 		else if (Lexer::CurrentToken == Token::While) return ParseWhile();
+		else if (Lexer::CurrentToken == Token::Todo) return ParseTodo();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseTodo()
+	{
+		int get_line = Lexer::Line;
+		int get_column = Lexer::Column;
+
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != Token::String) { AST::ExprError("String not found."); }
+
+		std::string s = Lexer::StringString;
+
+		TodoList::add(s, get_line, get_column);
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::Todo>();
 	}
 
 	static std::unique_ptr<AST::Expression> ParseWhile()
@@ -933,22 +950,27 @@ struct Parser
 		return std::make_unique<AST::Return>(std::move(Expr));
 	}
 
-	static std::unique_ptr<AST::Type> ParseType()
+	static std::unique_ptr<AST::Type> ParseType(std::string n = "")
 	{
+		std::string final_name;
+
+		if(n == "") final_name = Lexer::IdentifierStr;
+		else final_name = n;
+
 		std::unique_ptr<AST::Type> unsigned_type = nullptr;
 
-		if (Lexer::IdentifierStr == "i1" || Lexer::IdentifierStr == "bool") { return std::make_unique<AST::i1>(); }
-		else if (Lexer::IdentifierStr == "i8") { return std::make_unique<AST::i8>(); }
-		else if (Lexer::IdentifierStr == "i16") { return std::make_unique<AST::i16>(); }
-		else if (Lexer::IdentifierStr == "i32") { return std::make_unique<AST::i32>(); }
-		else if (Lexer::IdentifierStr == "i64") { return std::make_unique<AST::i64>(); }
-		else if (Lexer::IdentifierStr == "i128") { return std::make_unique<AST::i128>(); }
+		if (final_name == "i1" || final_name == "bool") { return std::make_unique<AST::i1>(); }
+		else if (final_name == "i8") { return std::make_unique<AST::i8>(); }
+		else if (final_name == "i16") { return std::make_unique<AST::i16>(); }
+		else if (final_name == "i32") { return std::make_unique<AST::i32>(); }
+		else if (final_name == "i64") { return std::make_unique<AST::i64>(); }
+		else if (final_name == "i128") { return std::make_unique<AST::i128>(); }
 
-		else if(Lexer::IdentifierStr == "u8" || Lexer::IdentifierStr == "char") { unsigned_type = std::make_unique<AST::i8>(); }
-		else if(Lexer::IdentifierStr == "u16" || Lexer::IdentifierStr == "wchar") { unsigned_type = std::make_unique<AST::i16>(); }
-		else if(Lexer::IdentifierStr == "u32" || Lexer::IdentifierStr == "uchar") { unsigned_type = std::make_unique<AST::i32>(); }
-		else if(Lexer::IdentifierStr == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
-		else if(Lexer::IdentifierStr == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
+		else if(final_name == "u8" || final_name == "char") { unsigned_type = std::make_unique<AST::i8>(); }
+		else if(final_name == "u16" || final_name == "wchar") { unsigned_type = std::make_unique<AST::i16>(); }
+		else if(final_name == "u32" || final_name == "uchar") { unsigned_type = std::make_unique<AST::i32>(); }
+		else if(final_name == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
+		else if(final_name == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
 
 		if(unsigned_type == nullptr) AST::ExprError("Unknown type '" + Lexer::IdentifierStr + "'.");
 
@@ -1182,6 +1204,7 @@ struct Parser
 			if (Lexer::CurrentToken == Token::Function) 	HandleFunction();
 			if (Lexer::CurrentToken == Token::Extern) 		HandleExtern();
 			if (Lexer::CurrentToken == Token::Atom) 		HandleAtom();
+			if (Lexer::CurrentToken == Token::Todo) 		ParseTodo();
 		}
 	}
 };

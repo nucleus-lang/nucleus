@@ -2,6 +2,7 @@
 
 std::string Lexer::Content;
 std::string Lexer::NumValString;
+std::string Lexer::StringString;
 std::string Lexer::IdentifierStr;
 
 int Lexer::Line;

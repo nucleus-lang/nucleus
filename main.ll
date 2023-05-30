@@ -2,29 +2,32 @@
 source_filename = "Nucleus"
 
 ; Function Attrs: mustprogress nofree nounwind willreturn
-define i32 @calculate_fib(i32 %n) #0 {
+define i32 @main() #0 {
 entry:
-  %cmptmp = icmp uge i32 1, %n
-  br i1 %cmptmp, label %if, label %continue
+  br i1 true, label %if, label %continue
 
 if:                                               ; preds = %entry
-  ret i32 %n
   br label %continue
 
 continue:                                         ; preds = %if, %entry
-  %subtmp = sub i32 %n, 1
-  %subtmp1 = sub i32 %n, 2
-  %calltmp = tail call i32 @calculate_fib(i32 %subtmp)
-  %calltmp2 = tail call i32 @calculate_fib(i32 %subtmp1)
-  %addtmp = add i32 %calltmp, %calltmp2
-  ret i32 %addtmp
-}
+  %phi = phi i32 [ 10, %if ], [ 0, %entry ]
+  br i1 false, label %if1, label %continue6
 
-; Function Attrs: mustprogress nofree nounwind willreturn
-define i32 @main() #0 {
-entry:
-  %calltmp = tail call i32 @calculate_fib(i32 30)
-  ret i32 %calltmp
+if1:                                              ; preds = %continue
+  br i1 true, label %if2, label %continue3
+
+if2:                                              ; preds = %if1
+  %addtmp = add i32 %phi, 5
+  br label %continue3
+
+continue3:                                        ; preds = %if2, %if1
+  %phi4 = phi i32 [ %addtmp, %if2 ], [ %phi, %if1 ]
+  %addtmp5 = add i32 %phi4, 3
+  br label %continue6
+
+continue6:                                        ; preds = %continue3, %continue
+  %phi7 = phi i32 [ %addtmp5, %continue3 ], [ %phi, %continue ]
+  ret i32 %phi7
 }
 
 attributes #0 = { mustprogress nofree nounwind willreturn }

@@ -1,16 +1,16 @@
-fn calculate_fib(n: i32): i32 {
-	if compare.is_less_than_or_equals(n, 1) {
-		return load n;
-	};
-
-	pure r1: i32 = n - 1;
-	pure r2: i32 = n - 2;
-
-	pure i: i32 = calculate_fib(r1);
-	pure i2: i32 = calculate_fib(r2);
-
-	return i + i2;
-}
+# fn calculate_fib(n: i32): i32 {
+# 	if compare.is_less_than_or_equals(n, 1) {
+# 		return load n;
+# 	};
+# 
+# 	pure r1: i32 = n - 1;
+# 	pure r2: i32 = n - 2;
+# 
+# 	pure i: i32 = calculate_fib(r1);
+# 	pure i2: i32 = calculate_fib(r2);
+# 
+# 	return i + i2;
+# }
 
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
@@ -26,7 +26,14 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 	return load r;
 }
 
-fn main(): i32 {
+todo "Add Slash Encoding '\\'";
+todo "\tWooooow!";
 
-	return load calculate_fib(30);
+fn main(): i32
+{
+
+	pure a: i32 = 30;
+	pure b: i32 = 3;
+
+	return load check_if_bigger_than(30, 3);
 }

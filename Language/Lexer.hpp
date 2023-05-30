@@ -44,6 +44,9 @@ enum Token
 	While = -23,
 
 	Atom = -24,
+
+	Todo = -25,
+	String = -26,
 };
 
 struct Lexer
@@ -52,6 +55,7 @@ struct Lexer
 
 	static std::string IdentifierStr;
 	static std::string NumValString;
+	static std::string StringString;
 
 	static void AddContent(std::string c)
 	{
@@ -111,6 +115,8 @@ struct Lexer
 		if (isalpha(LastChar) || LastChar == '@') return GetIdentifier();
 
 		if (isdigit(LastChar)) return GetNumber();
+
+		if(LastChar == '\"') return GetString();
 	
 		if (LastChar == '#')
 		{
@@ -189,6 +195,36 @@ struct Lexer
 		}
 	}
 
+	static int GetString()
+	{
+		StringString = "";
+		LastChar = Advance();
+
+		do
+		{
+			if(LastChar == '\\') 
+				StringSlash();
+
+			StringString += LastChar;
+			LastChar = Advance();
+		} while(LastChar != '\"' && LastChar != Token::EndOfFile && LastChar >= 32);
+
+		if(LastChar == '\"') { LastChar = Advance(); }
+
+		return Token::String;
+	}
+
+	static void StringSlash()
+	{
+		LastChar = Advance();
+
+		if(LastChar == 'n') LastChar = '\n';
+		else if(LastChar == 'r') LastChar = '\r';
+		else if(LastChar == 't') LastChar = '\t';
+		else if(LastChar == '\"') LastChar = '\"';
+		else if(LastChar == '\\') LastChar = '\\';
+	}
+
 	static int GetIdentifier()
 	{
 		IdentifierStr = LastChar;
@@ -223,6 +259,8 @@ struct Lexer
 		else if (IsIdentifier("extern")) return Token::Extern;
 
 		else if (IsIdentifier("atom")) return Token::Atom;
+
+		else if (IsIdentifier("todo")) return Token::Todo;
 		return Token::Identifier;
 	}
 
