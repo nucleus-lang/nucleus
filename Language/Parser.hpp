@@ -1040,9 +1040,28 @@ struct Parser
 
 		Lexer::GetNextToken();
 
+		std::string calling_convention;
+
+		if(Lexer::IdentifierStr == "cc")
+		{
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != '(') return AST::Prototype::Error("Expected '(' to begin calling convention in prototype.");
+
+			Lexer::GetNextToken();
+
+			calling_convention = Lexer::IdentifierStr;
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != ')') return AST::Prototype::Error("Expected ')' to end calling convention in prototype.");
+
+			Lexer::GetNextToken();
+		}
+
 		Parser::all_prototypes[FnName] = type_as_string;
 
-		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames), type_as_string);
+		return std::make_unique<AST::Prototype>(std::move(PType), FnName, std::move(ArgNames), type_as_string, calling_convention);
 	}
 
 	static void ResetTarget()

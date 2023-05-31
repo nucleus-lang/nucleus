@@ -2,32 +2,30 @@
 source_filename = "Nucleus"
 
 ; Function Attrs: mustprogress nofree nounwind willreturn
-define i32 @main() #0 {
+define ghccc i32 @main() #0 {
 entry:
-  br i1 true, label %if, label %continue
+  br i1 false, label %if, label %continue
 
 if:                                               ; preds = %entry
   br label %continue
 
 continue:                                         ; preds = %if, %entry
-  %phi = phi i32 [ 10, %if ], [ 0, %entry ]
-  br i1 false, label %if1, label %continue6
+  br i1 true, label %if1, label %continue4
 
 if1:                                              ; preds = %continue
   br i1 true, label %if2, label %continue3
 
 if2:                                              ; preds = %if1
-  %addtmp = add i32 %phi, 5
   br label %continue3
 
 continue3:                                        ; preds = %if2, %if1
-  %phi4 = phi i32 [ %addtmp, %if2 ], [ %phi, %if1 ]
-  %addtmp5 = add i32 %phi4, 3
-  br label %continue6
+  %phi = phi i32 [ 5, %if2 ], [ 0, %if1 ]
+  %addtmp = add i32 %phi, 3
+  br label %continue4
 
-continue6:                                        ; preds = %continue3, %continue
-  %phi7 = phi i32 [ %addtmp5, %continue3 ], [ %phi, %continue ]
-  ret i32 %phi7
+continue4:                                        ; preds = %continue3, %continue
+  %phi5 = phi i32 [ %addtmp, %continue3 ], [ 0, %continue ]
+  ret i32 %phi5
 }
 
 attributes #0 = { mustprogress nofree nounwind willreturn }

@@ -12,11 +12,14 @@
 # 	return i + i2;
 # }
 
+todo "Enhancement: Polish atomic functions:";
+todo "\tAdd recursion limit to them.";
+
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
 	pure r: i32 = 0;
 
-	if a > b { r += 10; };
+	if a > b { r += a; };
 
 	if a < 30 {
 		if a != 16 { r += 5; };
@@ -26,14 +29,10 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 	return load r;
 }
 
-todo "Add Slash Encoding '\\'";
-todo "\tWooooow!";
-
-fn main(): i32
+fn main(): i32 cc(GLASGOW_HASKELL)
 {
-
-	pure a: i32 = 30;
+	pure a: i8 = 'a';
 	pure b: i32 = 3;
 
-	return load check_if_bigger_than(30, 3);
+	return load check_if_bigger_than('\0', a);
 }

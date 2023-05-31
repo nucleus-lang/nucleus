@@ -1083,12 +1083,8 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
 	if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute::MustProgress); }
 
-	//if(attributes.is_fast)						{ f->setCallingConv(llvm::CallingConv::Tail); 
-
-													  // TODO: Investigate about the Glasgow Haskell
-													  //	   Convention. Possible Potential.
-													  //f->setCallingConv(llvm::CallingConv::GHC); 
-	//												}
+	if(attributes.calling_convention == "GLASGOW_HASKELL") 		{ f->setCallingConv(llvm::CallingConv::GHC); }
+	else if(attributes.calling_convention == "TAIL") 			{ f->setCallingConv(llvm::CallingConv::Tail); }
 
 	return f;
 }
@@ -1116,6 +1112,8 @@ llvm::Function* AST::Function::codegen()
 
 	// Save this one for later...
 	//AST::current_proto_type = Proto.PType.get();
+
+	attributes.calling_convention = P.calling_convention;
 
 	AST::FunctionProtos[Proto->getName()] = std::move(Proto);
 	llvm::Function* TheFunction = CodeGen::GetFunction(P.getName());

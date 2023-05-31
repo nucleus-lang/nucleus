@@ -116,6 +116,8 @@ struct Lexer
 
 		if (isdigit(LastChar)) return GetNumber();
 
+		if(LastChar == '\'') return GetChar();
+
 		if(LastChar == '\"') return GetString();
 	
 		if (LastChar == '#')
@@ -195,6 +197,24 @@ struct Lexer
 		}
 	}
 
+	static int GetChar()
+	{
+		LastChar = Advance();
+
+		NumValString = "";
+
+		if(LastChar == '\\') 
+			StringSlash();
+
+		NumValString += std::to_string(LastChar);
+
+		LastChar = Advance();
+
+		if(LastChar == '\'') { LastChar = Advance(); }
+
+		return Token::Number;
+	}
+
 	static int GetString()
 	{
 		StringString = "";
@@ -221,6 +241,7 @@ struct Lexer
 		if(LastChar == 'n') LastChar = '\n';
 		else if(LastChar == 'r') LastChar = '\r';
 		else if(LastChar == 't') LastChar = '\t';
+		else if(LastChar == '0') LastChar = '\0';
 		else if(LastChar == '\"') LastChar = '\"';
 		else if(LastChar == '\\') LastChar = '\\';
 	}
