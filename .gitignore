@@ -1,1 +1,10 @@
+# Build stuff
+[Bb]uild/
+[Bb]uilds/
+*.exe
+*.ll
+
+# Visual Studio Code
 .vscode
+
+
