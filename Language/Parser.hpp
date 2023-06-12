@@ -228,6 +228,23 @@ struct Parser
 
 			auto R = ParseExpression();
 
+			if(dynamic_cast<AST::NewArray*>(R.get()) && dynamic_cast<AST::Alloca*>(L.get()))
+			{
+				auto l_as_alloc = dynamic_cast<AST::Alloca*>(L.get());
+
+				if(!l_as_alloc)
+					AST::ExprError("'new_array()' can't be used in this variable type.");
+
+				if(!dynamic_cast<AST::Array*>(l_as_alloc->T.get()))
+					AST::ExprError("'" + l_as_alloc->VarName + "' is not an Array.");
+
+				auto RPtr = dynamic_cast<AST::NewArray*>(R.get());
+				auto RFinal = std::make_unique<AST::NewArray>(std::move(RPtr->items));
+				RFinal->target = std::move(L);
+
+				return RFinal;
+			}
+
 			if(dynamic_cast<AST::GetElement*>(R.get()) && dynamic_cast<AST::Alloca*>(L.get()))
 			{
 				auto RPtr = dynamic_cast<AST::GetElement*>(R.get());
@@ -524,28 +541,56 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::While) return ParseWhile();
 		else if (Lexer::CurrentToken == Token::Todo) return ParseTodo();
 		else if (Lexer::CurrentToken == Token::GetElement) return ParseGetElement();
+		else if (Lexer::CurrentToken == Token::NewArray) return ParseNewArray();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseNewArray()
+	{
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add new array arguments."); }
+
+		Lexer::GetNextToken();
+
+		ARGUMENT_LIST() args;
+
+		while(Lexer::CurrentToken != ')')
+		{
+			auto I = ParseExpression();
+
+			args.push_back(std::move(I));
+
+			if(Lexer::CurrentToken == ',') { Lexer::GetNextToken(); }
+			else { break; }
+		}
+
+		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close new array arguments."); }
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::NewArray>(std::move(args));
 	}
 
 	static std::unique_ptr<AST::Expression> ParseGetElement()
 	{
 		Lexer::GetNextToken();
 
-		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add item arguments."); }
+		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add get_element arguments."); }
 
 		Lexer::GetNextToken();
 
 		auto A = ParseIdentifier();
 
-		if(!check_if_is_in_array_list(Lexer::IdentifierStr)) { AST::ExprError("'" + Lexer::IdentifierStr + "' is not an array or a type that is able to use 'item()'."); }
+		if(!check_if_is_in_array_list(Lexer::IdentifierStr)) { AST::ExprError("'" + Lexer::IdentifierStr + "' is not an array or a type that is able to use 'get_element()'."); }
 
-		if(Lexer::CurrentToken != ',') { AST::ExprError("Expected ',' to separate item arguments."); }
+		if(Lexer::CurrentToken != ',') { AST::ExprError("Expected ',' to separate get_element arguments."); }
 
 		Lexer::GetNextToken();
 
 		auto N = ParseExpression();
 
-		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close item arguments."); }
+		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close get_element arguments."); }
 
 		Lexer::GetNextToken();
 

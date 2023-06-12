@@ -37,9 +37,9 @@ fn main(): i32
 	pure a: i32 = 30;
 	pure b: i32 = 3;
 
-	var my_first_array: Array<i32, 4>;
+	var my_first_array: Array<i32, 4> = new_array(1, 2, 3, 4, 5);
 
-	var first_element: i32 = get_element(my_first_array, 3);
+	var first_element: i32 = get_element(my_first_array, 4);
 	first_element += 4;
 
 	return verify first_element;

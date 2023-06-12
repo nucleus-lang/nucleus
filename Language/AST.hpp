@@ -292,6 +292,16 @@ struct AST
 		llvm::Value* codegen() override;
 	};
 
+	struct NewArray : public Expression
+	{
+		std::unique_ptr<Expression> target;
+		ARGUMENT_LIST() items;
+
+		NewArray(ARGUMENT_LIST() items) : items(std::move(items)) {}
+
+		llvm::Value* codegen() override;
+	};
+
 	struct Prototype 
 	{
 		std::unique_ptr<AST::Type> PType;
