@@ -4,30 +4,16 @@ source_filename = "Nucleus"
 ; Function Attrs: mustprogress nofree nounwind willreturn
 define i32 @main() #0 {
 entry:
-  br i1 true, label %if, label %continue
-
-if:                                               ; preds = %entry
-  br label %continue
-
-continue:                                         ; preds = %if, %entry
-  %phi = phi i32 [ 10, %if ], [ 0, %entry ]
-  br i1 false, label %if1, label %continue6
-
-if1:                                              ; preds = %continue
-  br i1 true, label %if2, label %continue3
-
-if2:                                              ; preds = %if1
-  %addtmp = add i32 %phi, 5
-  br label %continue3
-
-continue3:                                        ; preds = %if2, %if1
-  %phi4 = phi i32 [ %addtmp, %if2 ], [ %phi, %if1 ]
-  %addtmp5 = add i32 %phi4, 3
-  br label %continue6
-
-continue6:                                        ; preds = %continue3, %continue
-  %phi7 = phi i32 [ %addtmp5, %continue3 ], [ %phi, %continue ]
-  ret i32 %phi7
+  %my_first_array = alloca [4 x i32], align 4
+  %my_first_array1 = load [4 x i32], ptr %my_first_array, align 4
+  %first_element = getelementptr [4 x i32], ptr %my_first_array, i32 0, i32 3
+  %first_element2 = load i32, ptr %first_element, align 4
+  %addtmp = add i32 %first_element2, 4
+  store i32 %addtmp, ptr %first_element, align 4
+  %my_first_array3 = load [4 x i32], ptr %my_first_array, align 4
+  %getelement = getelementptr [4 x i32], ptr %my_first_array, i32 0, i32 3
+  %getelement4 = load i32, ptr %getelement, align 4
+  ret i32 %getelement4
 }
 
 attributes #0 = { mustprogress nofree nounwind willreturn }

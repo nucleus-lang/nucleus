@@ -47,6 +47,10 @@ enum Token
 
 	Todo = -25,
 	String = -26,
+
+	Array = -27,
+
+	GetElement = -28,
 };
 
 struct Lexer
@@ -282,6 +286,10 @@ struct Lexer
 		else if (IsIdentifier("atom")) return Token::Atom;
 
 		else if (IsIdentifier("todo")) return Token::Todo;
+
+		else if (IsIdentifier("Array")) return Token::Array;
+
+		else if (IsIdentifier("get_element")) return Token::GetElement;
 		return Token::Identifier;
 	}
 

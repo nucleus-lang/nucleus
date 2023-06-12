@@ -137,6 +137,8 @@ llvm::Type* AST::i32::codegen() { return llvm::Type::getInt32Ty(*CodeGen::TheCon
 llvm::Type* AST::i64::codegen() { return llvm::Type::getInt64Ty(*CodeGen::TheContext); }
 llvm::Type* AST::i128::codegen() { return llvm::Type::getInt128Ty(*CodeGen::TheContext); }
 
+llvm::Type* AST::Array::codegen() { return llvm::ArrayType::get(childType->codegen(), amount); }
+
 llvm::Value* AST::Nothing::codegen()
 {
 	CodeGen::Error("What is 'Nothing' doing here in the codegen process?... what? ._.");
@@ -145,7 +147,7 @@ llvm::Value* AST::Nothing::codegen()
 
 llvm::Value* AST::Todo::codegen()
 {
-	CodeGen::Error("What is 'todo!' doing here in the codegen process?... what? ._.");
+	CodeGen::Error("What is 'todo' doing here in the codegen process?... what? ._.");
 	return nullptr;
 }
 
@@ -334,7 +336,7 @@ llvm::Value* AST::Variable::codegen()
 		}
 	}
 
-	llvm::AllocaInst* V = CodeGen::NamedValues[Name];
+	llvm::Value* V = CodeGen::NamedValues[Name];
 
 	bool currentGPState = _getPointer;
 	_getPointer = false;
@@ -379,10 +381,10 @@ llvm::Value* AST::Variable::codegen()
 
 llvm::Value* AST::Alloca::codegen()
 {
-	std::vector<llvm::AllocaInst*> OldBindings;
+	std::vector<llvm::Value*> OldBindings;
 	llvm::Function* TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
 
-	llvm::AllocaInst* Alloca = nullptr;
+	llvm::Value* Alloca = nullptr;
 
 	Alloca = CodeGen::Builder->CreateAlloca(T->codegen(), 0, VarName.c_str());
 
@@ -418,7 +420,8 @@ llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 	if 		(llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(getV)) return I;
 	else if (llvm::Argument* I = dyn_cast<llvm::Argument>(getV)) return I;
 
-	if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
+	if 		(llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(getV)) TV = I->getAllocatedType();
+	else if (llvm::GetElementPtrInst* I = dyn_cast<llvm::GetElementPtrInst>(getV)) TV = I->getResultElementType();
 	else return getV;
 
 	auto L = CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
@@ -1043,6 +1046,64 @@ llvm::Value* AST::Pure::codegen()
 {
 	auto R = Inst->codegen();
 	CodeGen::NamedPures[Name] = R;
+
+	return R;
+}
+
+llvm::Value* AST::GetElement::codegen()
+{
+	llvm::Value* number_codegen = GetInst(number.get());
+	llvm::Value* target_codegen = GetInst(target.get());
+
+	llvm::Value* indexList[2] = {llvm::ConstantInt::get(number_codegen->getType(), 0), number_codegen};
+
+	llvm::ArrayType* t = dyn_cast<llvm::ArrayType>(target_codegen->getType());
+
+	if(t)
+	{
+		uint64_t number_of_elements = t->getNumElements() - 1;
+
+		auto limit_v = std::make_unique<Number>(std::to_string(number_of_elements));
+		limit_v->bit = 32;
+
+		auto compare_v = std::make_unique<Compare>(std::move(number), std::move(limit_v), 1);
+
+		llvm::Value* ConditionV = compare_v->codegen();
+
+		number = std::move(compare_v->A);
+
+		std::string bool_result;
+		llvm::raw_string_ostream rslt(bool_result);
+		ConditionV->print(rslt);
+
+		if(bool_result == "i1 true")
+		{
+			std::cout << GetElementName << "'s length is higher than the limit.\n";
+			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+			exit(1);
+		}
+
+		llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
+
+		llvm::BasicBlock* IfBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, "if", TheFunction);
+		llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
+
+		CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
+
+		CodeGen::Builder->SetInsertPoint(IfBlock);
+
+		auto exit_v = std::make_unique<Number>("1");
+		exit_v->bit = 32;
+
+		CodeGen::Builder->CreateRet(exit_v->codegen());
+
+		TheFunction->getBasicBlockList().push_back(ContinueBlock);
+		CodeGen::Builder->SetInsertPoint(ContinueBlock);
+	}
+
+	llvm::Value* R = CodeGen::Builder->CreateGEP(target_codegen->getType(), target->codegen(), llvm::ArrayRef<llvm::Value*>(indexList, 2), GetElementName);
+
+	if(set_var) { CodeGen::NamedValues[GetElementName] = R; }
 
 	return R;
 }

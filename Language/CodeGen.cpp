@@ -11,7 +11,7 @@ std::unique_ptr<llvm::LLVMContext> CodeGen::TheContext;
 std::unique_ptr<llvm::IRBuilder<>> CodeGen::Builder;
 std::unique_ptr<llvm::Module> CodeGen::TheModule;
 
-std::map<std::string, llvm::AllocaInst*> CodeGen::NamedValues;
+std::map<std::string, llvm::Value*> CodeGen::NamedValues;
 std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> CodeGen::NamedLoads;
 std::map<std::string, llvm::Value*> CodeGen::NamedPures;
 std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> CodeGen::NamedPHILoads;

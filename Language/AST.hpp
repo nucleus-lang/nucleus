@@ -60,6 +60,16 @@ struct AST
 	NEW_TYPE(i64);
 	NEW_TYPE(i128);
 
+	struct Array : public Type {
+
+		std::unique_ptr<Type> childType;
+		int amount;
+
+		Array(std::unique_ptr<Type> childType, int amount) : childType(std::move(childType)), amount(amount) {}
+
+		llvm::Type* codegen() override;
+	};
+
 	static std::unique_ptr<Expression> ExprError(std::string str);
 
 	struct Number : public Expression
@@ -265,6 +275,20 @@ struct AST
 
 	struct Todo : public Expression
 	{
+		llvm::Value* codegen() override;
+	};
+
+	struct GetElement : public Expression
+	{
+		std::unique_ptr<Expression> target;
+		std::unique_ptr<Expression> number;
+
+		std::string GetElementName = "getelement";
+		bool set_var = false;
+
+		GetElement(std::unique_ptr<Expression> target, std::unique_ptr<Expression> number) :
+			target(std::move(target)), number(std::move(number)) {}
+
 		llvm::Value* codegen() override;
 	};
 

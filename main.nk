@@ -12,8 +12,11 @@
 # 	return i + i2;
 # }
 
-todo "Enhancement: Polish atomic functions:";
-todo "\tAdd recursion limit to them.";
+# todo "Enhancement: Polish atomic functions:";
+# todo "\tTry to find a way to make atomic functions recursive.";
+# todo "\tIf not possible, add a recursion limit to them.";
+
+todo "Add Exit Codes to 'get_element()'.";
 
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 	
@@ -29,10 +32,15 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 	return load r;
 }
 
-fn main(): i32 cc(GLASGOW_HASKELL)
+fn main(): i32
 {
-	pure a: i8 = 'a';
+	pure a: i32 = 30;
 	pure b: i32 = 3;
 
-	return load check_if_bigger_than('\0', a);
+	var my_first_array: Array<i32, 4>;
+
+	var first_element: i32 = get_element(my_first_array, 3);
+	first_element += 4;
+
+	return verify first_element;
 }

@@ -10,9 +10,12 @@ std::string Parser::last_identifier;
 std::string Parser::last_target;
 std::string Parser::last_function_call;
 bool Parser::grab_target = true;
+
 std::unordered_map<std::string, std::string> Parser::all_variables;
 std::unordered_map<std::string, std::string> Parser::all_loads;
 std::unordered_map<std::string, std::string> Parser::all_prototypes;
+std::unordered_map<std::string, std::string> Parser::all_arrays;
+
 std::unordered_map<std::string, bool> Parser::vars_with_nothing;
 std::unordered_map<std::string, bool> Parser::verified_allocs;
 std::pair<std::string, std::string> Parser::current_function_in_scope;

@@ -18,6 +18,7 @@ struct Parser
 	static std::unordered_map<std::string, std::string> all_variables;
 	static std::unordered_map<std::string, std::string> all_loads;
 	static std::unordered_map<std::string, std::string> all_prototypes;
+	static std::unordered_map<std::string, std::string> all_arrays;
 
 	static std::unordered_map<std::string, bool> vars_with_nothing;
 	static std::unordered_map<std::string, bool> verified_allocs;
@@ -32,6 +33,21 @@ struct Parser
 	static std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old) {
     	return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
     	// conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
+	}
+
+	static void add_to_array_list(std::string name, std::string type) {
+
+		all_arrays[name] = type;
+	}
+
+	static bool check_if_is_array(AST::Type* t) {
+
+		return dynamic_cast<AST::Array*>(t) != nullptr;
+	}
+
+	static bool check_if_is_in_array_list(std::string name) {
+
+		return all_arrays.find(name) != all_arrays.end();
 	}
 
 	static void add_to_variables_list(std::string name, std::string type)
@@ -212,6 +228,20 @@ struct Parser
 
 			auto R = ParseExpression();
 
+			if(dynamic_cast<AST::GetElement*>(R.get()) && dynamic_cast<AST::Alloca*>(L.get()))
+			{
+				auto RPtr = dynamic_cast<AST::GetElement*>(R.get());
+
+				auto RFinal = std::make_unique<AST::GetElement>(std::move(RPtr->target), std::move(RPtr->number));
+
+				auto LPtr = dynamic_cast<AST::Alloca*>(L.get());
+
+				RFinal->GetElementName = LPtr->VarName;
+				RFinal->set_var = true;
+
+				return RFinal;
+			}
+
 			if(is_compare) {
 
 				auto C = std::make_unique<AST::Compare>(std::move(L), std::move(R), get_compare_type("is_equals"));
@@ -279,6 +309,10 @@ struct Parser
 				else if(l_as_alloc) {
 					verify_alloc(l_as_alloc->VarName);
 					initialize_alloc(l_as_alloc->VarName);
+				}
+				else if(dynamic_cast<AST::GetElement*>(L.get()))
+				{
+					return AST::ExprError("Due to safety mechanisms, get_element() can't be used to set elements.");
 				}
 				else
 					return AST::ExprError("What");
@@ -489,7 +523,33 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::Pure) return ParsePure();
 		else if (Lexer::CurrentToken == Token::While) return ParseWhile();
 		else if (Lexer::CurrentToken == Token::Todo) return ParseTodo();
+		else if (Lexer::CurrentToken == Token::GetElement) return ParseGetElement();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseGetElement()
+	{
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add item arguments."); }
+
+		Lexer::GetNextToken();
+
+		auto A = ParseIdentifier();
+
+		if(!check_if_is_in_array_list(Lexer::IdentifierStr)) { AST::ExprError("'" + Lexer::IdentifierStr + "' is not an array or a type that is able to use 'item()'."); }
+
+		if(Lexer::CurrentToken != ',') { AST::ExprError("Expected ',' to separate item arguments."); }
+
+		Lexer::GetNextToken();
+
+		auto N = ParseExpression();
+
+		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close item arguments."); }
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::GetElement>(std::move(A), std::move(N));
 	}
 
 	static std::unique_ptr<AST::Expression> ParseTodo()
@@ -838,7 +898,7 @@ struct Parser
 
 		Lexer::GetNextToken();
 
-		auto Value = ParseIdentifier();
+		auto Value = ParseExpression();
 
 		AST::Variable* value_as_var = dynamic_cast<AST::Variable*>(Value.get());
 		if(value_as_var) check_if_variable_is_uninitialized(value_as_var, 1);
@@ -887,6 +947,9 @@ struct Parser
 		Lexer::GetNextToken();
 
 		auto T = ParseType();
+
+		if(check_if_is_array(T.get()))
+			add_to_array_list(Name, Lexer::IdentifierStr);
 
 		add_to_variables_list(Name, Lexer::IdentifierStr);
 
@@ -971,6 +1034,34 @@ struct Parser
 		else if(final_name == "u32" || final_name == "uchar") { unsigned_type = std::make_unique<AST::i32>(); }
 		else if(final_name == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
 		else if(final_name == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
+
+		else if(final_name == "Array") {
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != '<')
+				AST::ExprError("Expected '<' to specify array arguments.");
+
+			Lexer::GetNextToken();
+
+			auto T = ParseType();
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != ',')
+				AST::ExprError("Expected ',' to separate array arguments.");
+
+			Lexer::GetNextToken();
+
+			int amount = std::stoi(Lexer::NumValString);
+
+			Lexer::GetNextToken();
+
+			if(Lexer::CurrentToken != '>')
+				AST::ExprError("Expected '>' to close array arguments.");
+
+			return std::make_unique<AST::Array>(std::move(T), amount);
+		}
 
 		if(unsigned_type == nullptr) AST::ExprError("Unknown type '" + Lexer::IdentifierStr + "'.");
 
