@@ -137,7 +137,16 @@ llvm::Type* AST::i32::codegen() { return llvm::Type::getInt32Ty(*CodeGen::TheCon
 llvm::Type* AST::i64::codegen() { return llvm::Type::getInt64Ty(*CodeGen::TheContext); }
 llvm::Type* AST::i128::codegen() { return llvm::Type::getInt128Ty(*CodeGen::TheContext); }
 
-llvm::Type* AST::Array::codegen() { return llvm::ArrayType::get(childType->codegen(), amount); }
+llvm::Type* AST::Array::codegen() { 
+
+	if(is_in_prototype) {
+		if(amount == 0) {
+			return llvm::PointerType::getUnqual(childType->codegen());
+		}
+	}
+
+	return llvm::ArrayType::get(childType->codegen(), amount); 
+}
 
 llvm::Value* AST::Nothing::codegen()
 {
@@ -1111,6 +1120,19 @@ llvm::Value* AST::GetElement::codegen()
 llvm::Value* AST::NewArray::codegen()
 {
 	if(target == nullptr) { CodeGen::Error("NewArray Target not found."); }
+
+	if(is_resizable)
+	{
+		auto TPtr = dynamic_cast<AST::Alloca*>(target.get());
+
+		auto TPtrType = dynamic_cast<AST::Array*>(TPtr->T.get());
+
+		auto final_array_type = std::make_unique<AST::Array>(std::move(TPtrType->childType), items.size());
+
+		std::string save_name = TPtr->VarName;
+		
+		target = std::make_unique<AST::Alloca>(std::move(final_array_type), save_name);
+	}
 
 	llvm::Value* target_cg = GetInst(target.get());
 

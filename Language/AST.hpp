@@ -25,6 +25,8 @@ struct AST
 
 		bool is_unsigned = false;
 
+		bool is_in_prototype = false;
+
 		virtual llvm::Type* codegen() = 0;
 	};
 
@@ -296,6 +298,7 @@ struct AST
 	{
 		std::unique_ptr<Expression> target;
 		ARGUMENT_LIST() items;
+		bool is_resizable = false;
 
 		NewArray(ARGUMENT_LIST() items) : items(std::move(items)) {}
 

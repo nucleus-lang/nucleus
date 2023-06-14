@@ -17,6 +17,7 @@
 # todo "\tIf not possible, add a recursion limit to them.";
 
 todo "Add Exit Codes to 'get_element()'.";
+todo "Add Array Safety between arguments.";
 
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 
@@ -32,15 +33,13 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 	return load r;
 }
 
+extern print_content(content: Array<i8>): i32;
+
 fn main(): i32
 {
-	pure a: i32 = 30;
-	pure b: i32 = 3;
+	var my_first_array: Array<i8> = "Hello World!";
 
-	var my_first_array: Array<i32, 4> = new_array(1, 2, 3, 4, 5);
+	print_content(my_first_array);
 
-	var first_element: i32 = get_element(my_first_array, 4);
-	first_element += 4;
-
-	return verify first_element;
+	return 0;
 }

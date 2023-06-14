@@ -242,6 +242,14 @@ struct Parser
 				auto RFinal = std::make_unique<AST::NewArray>(std::move(RPtr->items));
 				RFinal->target = std::move(L);
 
+				auto arr_type = dynamic_cast<AST::Array*>(l_as_alloc->T.get());
+
+				if(!arr_type)
+					AST::ExprError("'new_array()' can't be used in this variable type.");
+
+				if(arr_type->amount == 0)
+					RFinal->is_resizable = true;
+
 				return RFinal;
 			}
 
@@ -542,7 +550,32 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::Todo) return ParseTodo();
 		else if (Lexer::CurrentToken == Token::GetElement) return ParseGetElement();
 		else if (Lexer::CurrentToken == Token::NewArray) return ParseNewArray();
+		else if (Lexer::CurrentToken == Token::String) return ParseNewString();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseNewString()
+	{
+		std::string s = Lexer::StringString;
+
+		ARGUMENT_LIST() args;
+
+		for(auto i : s)
+		{
+			int c = int(i);
+			auto character = std::make_unique<AST::Number>(std::to_string(c));
+			character->bit = 8;
+
+			args.push_back(std::move(character));
+		}
+
+		auto end = std::make_unique<AST::Number>("0");
+		end->bit = 8;
+		args.push_back(std::move(end));
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::NewArray>(std::move(args));
 	}
 
 	static std::unique_ptr<AST::Expression> ParseNewArray()
@@ -1093,16 +1126,17 @@ struct Parser
 
 			Lexer::GetNextToken();
 
-			if(Lexer::CurrentToken != ',')
-				AST::ExprError("Expected ',' to separate array arguments.");
+			int amount = 0;
 
-			Lexer::GetNextToken();
+			if(Lexer::CurrentToken == ',')
+			{
+				Lexer::GetNextToken();
 
-			int amount = std::stoi(Lexer::NumValString);
+				amount = std::stoi(Lexer::NumValString);
 
-			Lexer::GetNextToken();
-
-			if(Lexer::CurrentToken != '>')
+				Lexer::GetNextToken();
+			}
+			else if(Lexer::CurrentToken != '>')
 				AST::ExprError("Expected '>' to close array arguments.");
 
 			return std::make_unique<AST::Array>(std::move(T), amount);
@@ -1144,6 +1178,8 @@ struct Parser
 			auto t = ParseType();
 
 			if (t == nullptr) return AST::Prototype::Error("Unknown type found in arguments.");
+
+			t->is_in_prototype = true;
 
 			add_to_loads_list(idName, Lexer::IdentifierStr);
 
