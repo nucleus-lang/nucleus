@@ -125,7 +125,7 @@ struct Lexer
 		if(LastChar == '\'') return GetChar();
 
 		if(LastChar == '\"') return GetString();
-	
+
 		if (LastChar == '#')
 		{
 			// Comment until end of line.
@@ -209,7 +209,7 @@ struct Lexer
 
 		NumValString = "";
 
-		if(LastChar == '\\') 
+		if(LastChar == '\\')
 			StringSlash();
 
 		NumValString += std::to_string(LastChar);
@@ -228,7 +228,7 @@ struct Lexer
 
 		do
 		{
-			if(LastChar == '\\') 
+			if(LastChar == '\\')
 				StringSlash();
 
 			StringString += LastChar;
@@ -305,7 +305,7 @@ struct Lexer
 			if(LastChar != '_') NumStr += LastChar;
 			LastChar = Advance();
 		} while (isdigit(LastChar) || LastChar == '.' || LastChar == 'f' || LastChar == '_');
-	
+
 		NumValString = NumStr;
 		return Token::Number;
 	}
