@@ -13,7 +13,7 @@ struct StaticAnalyzer
 
 	static void new_static_i32(std::string name, int32_t value);
 	static void check_static_i32(int32_t a, int32_t b);
-	
+
 	static void add_static_i32(std::string name, int32_t value);
 	static void sub_static_i32(std::string name, int32_t value);
 };

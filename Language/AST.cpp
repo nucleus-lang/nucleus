@@ -96,7 +96,7 @@ std::unique_ptr<AST::Expression> AST::ExprError(std::string str)
 	std::string final_error = str + " " + found_what;
 
 	ErrorHandler::print(final_error, Lexer::Line, Lexer::Column, Lexer::line_as_string, 0);
-	
+
 	exit(1);
 	return nullptr;
 }
@@ -164,10 +164,10 @@ llvm::Value* CreateAtomCall(std::string name, ARGUMENT_LIST() Args)
 	for (auto const& i: AST::Atoms[name]->Body)
 	{
 		if (i != nullptr)
-		{	
+		{
 			auto iC = i->codegen();
 
-			if(dynamic_cast<AST::Return*>(i.get())) 
+			if(dynamic_cast<AST::Return*>(i.get()))
 				ret = iC;
 		}
 	}
@@ -293,9 +293,9 @@ llvm::Value* AST::Load::codegen()
 
 llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s)
 {
-	if(CodeGen::NamedPHILoads.find(name) != CodeGen::NamedPHILoads.end()) 
+	if(CodeGen::NamedPHILoads.find(name) != CodeGen::NamedPHILoads.end())
 	{
-		if(CodeGen::NamedPHILoads[name].second != CodeGen::Builder->GetInsertBlock()) 
+		if(CodeGen::NamedPHILoads[name].second != CodeGen::Builder->GetInsertBlock())
 		{
 			auto P = CodeGen::Builder->CreatePHI(l->getType(), 2, "phi");
 
@@ -324,7 +324,7 @@ llvm::Value* AST::Variable::codegen()
 		while(atomIdx > -1)
 		{
 			for(int id = 0; id < current_atom_line[atomIdx]->Args.size(); id++) {
-				
+
 				if(current_atom_line[atomIdx]->Args[id].first == Name) {
 					return current_atom_line[atomIdx]->RealArgs[Idx]->codegen();
 				}
@@ -341,11 +341,11 @@ llvm::Value* AST::Variable::codegen()
 	bool currentGPState = _getPointer;
 	_getPointer = false;
 
-	if (!V) 
-	{ 
+	if (!V)
+	{
 		llvm::LoadInst* V2 = CodeGen::NamedLoads[Name].first;
 
-		if (!V2) { 
+		if (!V2) {
 
 			llvm::Argument* V3 = CodeGen::NamedArguments[Name].first;
 
@@ -353,7 +353,7 @@ llvm::Value* AST::Variable::codegen()
 
 				llvm::Value* V4 = CodeGen::NamedPures[Name];
 
-				if(!V4) CodeGen::Error("Unknown variable name: " + Name + "\n"); 
+				if(!V4) CodeGen::Error("Unknown variable name: " + Name + "\n");
 
 				AST::CurrentIdentifier = Name;
 
@@ -557,7 +557,7 @@ llvm::Value* AST::Sub::codegen()
 
 	L = GetPHI(target_name, Target->codegen(), L);
 
-	if (IsIntegerType(L) && IsIntegerType(R)) 
+	if (IsIntegerType(L) && IsIntegerType(R))
 	{
 		// if(!Target->is_unsigned)
 			Result = CodeGen::Builder->CreateSub(L, R, "subtmp");
@@ -692,7 +692,7 @@ std::map<std::string, llvm::Value*> get_entry_values(std::string m = "") {
 void set_entry_values(std::map<std::string, llvm::Value*> r) {
 
 	MAP_FOREACH(std::string, llvm::Value*, r, it) {
-		
+
 		if(CodeGen::NamedPures.find(it->first) != CodeGen::NamedPures.end())
 			CodeGen::NamedPures[it->first] = it->second;
 
@@ -737,7 +737,7 @@ llvm::Value* generate_individual_ifelse_phi(
 		rightBB = blockPreds[1];
 		coreBB = blockPreds[1];
 	}
-	else 
+	else
 	{
 		if(dyn_cast<llvm::Instruction>(l)) {
 			auto e = dyn_cast<llvm::Instruction>(l);
@@ -832,7 +832,7 @@ llvm::Value* AST::If::codegen()
 
 	std::map<std::string, llvm::Value*> ElseEntryValues;
 	ElseEntryValues = get_entry_values("else");
-	
+
 	if(/*!dynamic_cast<AST::Return*>(IfBody[IfBody.size() - 1].get()) &&*/ !uncontinue)
 	{
 		push_continue_block = true;
@@ -857,7 +857,7 @@ llvm::Value* AST::If::codegen()
 		}
 		else { push_continue_block = false; }
 	}
-	
+
 	if(/*push_continue_block &&*/ !uncontinue)
 	{
 		TheFunction->getBasicBlockList().push_back(ContinueBlock);
@@ -865,10 +865,10 @@ llvm::Value* AST::If::codegen()
 	}
 
 	llvm::BasicBlock* curr;
-	
+
 	if(ElseBlock != nullptr) curr = ElseBlock;
 	else curr = EntryBlock;
-	
+
 	ifelse_set_phis(IfEntryValues, ElseEntryValues, IfBlock, curr);
 
 	return nullptr;
@@ -1115,15 +1115,15 @@ llvm::Value* AST::NewArray::codegen()
 	llvm::Value* target_cg = GetInst(target.get());
 
 	if(target_cg == nullptr) {
-		std::cout << "TODO: Link Parser Error System with the CodeGen.\n"; 
-		CodeGen::Error("NewArray Target's leaf not found."); 
+		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+		CodeGen::Error("NewArray Target's leaf not found.");
 	}
 
 	llvm::ArrayType* target_type = dyn_cast<llvm::ArrayType>(target_cg->getType());
 
-	if(target_type == nullptr) { 
+	if(target_type == nullptr) {
 		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-		CodeGen::Error("NewArray Target's Type is not an array."); 
+		CodeGen::Error("NewArray Target's Type is not an array.");
 	}
 
 	uint64_t num_elements = target_type->getNumElements();
@@ -1131,7 +1131,7 @@ llvm::Value* AST::NewArray::codegen()
 	if(num_elements < items.size())
 	{
 		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-		CodeGen::Error("'new_array()' size is higher than the Array."); 
+		CodeGen::Error("'new_array()' size is higher than the Array.");
 	}
 
 	int count;
@@ -1147,7 +1147,7 @@ llvm::Value* AST::NewArray::codegen()
 		if(i_cg->getType() != target_type->getArrayElementType())
 		{
 			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-			CodeGen::Error("Item Type is not the same as Array Type."); 
+			CodeGen::Error("Item Type is not the same as Array Type.");
 		}
 
 		auto int_type = llvm::Type::getInt32Ty(*CodeGen::TheContext);
@@ -1183,7 +1183,7 @@ llvm::Function* AST::Prototype::codegen()
 	llvm::Function* F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, Name, CodeGen::TheModule.get());
 
 	unsigned Idx = 0;
-	for (auto &Arg : F->args()) 
+	for (auto &Arg : F->args())
 	{
 		if (Args[Idx] == nullptr) CodeGen::Error("One of the Arguments is nullptr.");
 

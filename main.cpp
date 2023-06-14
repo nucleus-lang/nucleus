@@ -75,6 +75,6 @@ int main(int argc, char const *argv[])
 			else { std::cout << "Error: Name not provided!\n"; }
 		}
 	}
-	
+
 	return 0;
 }

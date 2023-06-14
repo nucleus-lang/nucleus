@@ -82,7 +82,7 @@ struct AST
 		unsigned bit = 32;
 		std::string valueAsString;
 
-		Number(std::string val, bool is_uns = false) 
+		Number(std::string val, bool is_uns = false)
 		{
 			is_unsigned = is_uns;
 			//std::cout << "Number Input: " << val << "\n";
@@ -267,7 +267,7 @@ struct AST
 		std::unique_ptr<Expression> Condition;
 		ARGUMENT_LIST() Body;
 
-		Loop(std::string LoopName, std::unique_ptr<Expression> Condition, ARGUMENT_LIST() Body) : 
+		Loop(std::string LoopName, std::unique_ptr<Expression> Condition, ARGUMENT_LIST() Body) :
 			LoopName(LoopName), Condition(std::move(Condition)), Body(std::move(Body)) {}
 
 		llvm::Value* codegen() override;
@@ -302,18 +302,18 @@ struct AST
 		llvm::Value* codegen() override;
 	};
 
-	struct Prototype 
+	struct Prototype
 	{
 		std::unique_ptr<AST::Type> PType;
 		std::string Name;
 		std::string TypeAsString;
 		std::string calling_convention;
 		std::vector<std::unique_ptr<AST::Variable>> Args;
-		
+
 		public:
 			Prototype(std::unique_ptr<AST::Type> PType, const std::string &Name, std::vector<std::unique_ptr<AST::Variable>> Args, const std::string &type_as_string, std::string calling_convention = "")
 		 	 : PType(std::move(PType)), Name(Name), Args(std::move(Args)), TypeAsString(type_as_string), calling_convention(calling_convention) {}
-		
+
 		const std::string &getName() const { return Name; }
 
 		static std::unique_ptr<Prototype> Error(std::string str)

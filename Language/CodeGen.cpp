@@ -77,7 +77,7 @@ void CodeGen::Build()
 }
 
 void CodeGen::Print()
-{	
+{
 	TheModule->print(llvm::outs(), nullptr);
 }
 
@@ -87,16 +87,16 @@ void CodeGen::Run()
 
 	#ifdef _WIN32
 		// additional information
-		STARTUPINFO si;     
+		STARTUPINFO si;
 		PROCESS_INFORMATION pi;
-		
+
 		// set the size of the structures
 		ZeroMemory( &si, sizeof(si) );
 		si.cb = sizeof(si);
 		ZeroMemory( &pi, sizeof(pi) );
 
 		std::string resultPath = std::string(std::filesystem::current_path().string() + "/result.exe");
-		
+
 		// start the program up
 		auto res = CreateProcess(
 			NULL,   // the path
@@ -106,12 +106,12 @@ void CodeGen::Run()
 			FALSE,          // Set handle inheritance to FALSE
 			0,              // No creation flags
 			NULL,           // Use parent's environment block
-			NULL,           // Use parent's starting directory 
+			NULL,           // Use parent's starting directory
 			&si,            // Pointer to STARTUPINFO structure
 			&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
 		);
-		// Close process and thread handles. 
-		
+		// Close process and thread handles.
+
 		if (!res)
 		{
 			std::cout << "Error: Program can't be executed.\n";
@@ -122,9 +122,9 @@ void CodeGen::Run()
 			unsigned long exitCode;
 
 			WaitForSingleObject(
-				pi.hProcess,  
-				INFINITE      // time-out interval in milliseconds  
-				);  
+				pi.hProcess,
+				INFINITE      // time-out interval in milliseconds
+				);
 			GetExitCodeProcess(pi.hProcess, &exitCode);
 
 			std::cout << "Your Program Returned: " << (int)exitCode << "\n";
