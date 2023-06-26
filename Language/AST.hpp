@@ -19,6 +19,8 @@ struct AST
 	static llvm::Value* CurrInst;
 	static std::string CurrentIdentifier;
 
+	static llvm::Function* exit_declare;
+
 	struct Type
 	{
 		virtual ~Type() = default;
@@ -52,6 +54,8 @@ struct AST
 
 		llvm::Value* CurrentInstruction();
 
+		std::unique_ptr<Expression> internal_length;
+
 		virtual llvm::Value* codegen() = 0;
 	};
 
@@ -61,6 +65,8 @@ struct AST
 	NEW_TYPE(i32);
 	NEW_TYPE(i64);
 	NEW_TYPE(i128);
+
+	NEW_TYPE(Void);
 
 	struct Array : public Type {
 
@@ -301,6 +307,26 @@ struct AST
 		bool is_resizable = false;
 
 		NewArray(ARGUMENT_LIST() items) : items(std::move(items)) {}
+
+		llvm::Value* codegen() override;
+	};
+
+	struct Exit : public Expression
+	{
+		std::unique_ptr<Expression> numb;
+
+		Exit(std::unique_ptr<Expression> numb) : numb(std::move(numb)) {}
+
+		llvm::Value* codegen() override;
+	};
+
+	struct IntCast : public Expression
+	{
+		std::unique_ptr<Expression> target;
+		std::unique_ptr<Type> convert_to_type;
+
+		IntCast(std::unique_ptr<Expression> target, std::unique_ptr<Type> convert_to_type) :
+			target(std::move(target)), convert_to_type(std::move(convert_to_type)) {}
 
 		llvm::Value* codegen() override;
 	};

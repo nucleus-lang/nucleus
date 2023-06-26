@@ -51,8 +51,11 @@ enum Token
 	Array = -27,
 
 	GetElement = -28,
-
 	NewArray = -29,
+
+	Exit = -30,
+
+	IntCast = -31,
 };
 
 struct Lexer
@@ -293,6 +296,10 @@ struct Lexer
 
 		else if (IsIdentifier("get_element")) return Token::GetElement;
 		else if (IsIdentifier("new_array")) return Token::NewArray;
+
+		else if (IsIdentifier("exit")) return Token::Exit;
+
+		else if (IsIdentifier("int_cast")) return Token::IntCast;
 		return Token::Identifier;
 	}
 

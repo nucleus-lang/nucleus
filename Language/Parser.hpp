@@ -18,10 +18,12 @@ struct Parser
 	static std::unordered_map<std::string, std::string> all_variables;
 	static std::unordered_map<std::string, std::string> all_loads;
 	static std::unordered_map<std::string, std::string> all_prototypes;
-	static std::unordered_map<std::string, std::string> all_arrays;
+	static std::unordered_map<std::string, AST::Type*> all_arrays;
 
 	static std::unordered_map<std::string, bool> vars_with_nothing;
 	static std::unordered_map<std::string, bool> verified_allocs;
+
+	static bool is_exit_declared;
 
 	static std::pair<std::string, std::string> current_function_in_scope;
 
@@ -29,15 +31,17 @@ struct Parser
 
 	static bool dont_share_history;
 
+	static bool use_architechture_bit;
+
 	template<typename TO, typename FROM>
 	static std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old) {
     	return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
     	// conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
 	}
 
-	static void add_to_array_list(std::string name, std::string type) {
+	static void add_to_array_list(std::string name, AST::Type* t) {
 
-		all_arrays[name] = type;
+		all_arrays[name] = t;
 	}
 
 	static bool check_if_is_array(AST::Type* t) {
@@ -99,8 +103,11 @@ struct Parser
 	{
 		std::string type_result;
 
-		if(in_return) 			type_result = current_function_in_scope.second;
-		else 					type_result = get_type_from_prototype(Parser::last_function_call);
+		if(Parser::use_architechture_bit)		type_result = "i32";
+		else if(in_return) 						type_result = current_function_in_scope.second;
+		else 									type_result = get_type_from_prototype(Parser::last_function_call);
+
+		Parser::use_architechture_bit = false;
 
 		if(type_result == "") {
 			type_result = get_type_from_variable(Parser::last_target);
@@ -235,19 +242,21 @@ struct Parser
 				if(!l_as_alloc)
 					AST::ExprError("'new_array()' can't be used in this variable type.");
 
-				if(!dynamic_cast<AST::Array*>(l_as_alloc->T.get()))
+				auto l_alloc_array_type = dynamic_cast<AST::Array*>(l_as_alloc->T.get());
+
+				if(!l_alloc_array_type)
 					AST::ExprError("'" + l_as_alloc->VarName + "' is not an Array.");
 
 				auto RPtr = dynamic_cast<AST::NewArray*>(R.get());
 				auto RFinal = std::make_unique<AST::NewArray>(std::move(RPtr->items));
 				RFinal->target = std::move(L);
 
-				auto arr_type = dynamic_cast<AST::Array*>(l_as_alloc->T.get());
+				auto newT = std::make_unique<AST::Array>(std::move(l_alloc_array_type->childType), RFinal->items.size());
+				l_as_alloc->T = std::move(newT);
 
-				if(!arr_type)
-					AST::ExprError("'new_array()' can't be used in this variable type.");
+				all_arrays[l_as_alloc->VarName] = l_as_alloc->T.get();
 
-				if(arr_type->amount == 0)
+				if(l_alloc_array_type->amount == 0)
 					RFinal->is_resizable = true;
 
 				return RFinal;
@@ -263,6 +272,9 @@ struct Parser
 
 				RFinal->GetElementName = LPtr->VarName;
 				RFinal->set_var = true;
+
+				verify_alloc(LPtr->VarName);
+				initialize_alloc(LPtr->VarName);
 
 				return RFinal;
 			}
@@ -500,8 +512,26 @@ struct Parser
 				std::string get_type = get_type_from_variable(Parser::last_target);
 
 				add_to_loads_list(title, get_type);
-				inst_before_arg.push_back(std::make_unique<AST::Pure>(title, ParseType(get_type), std::move(Expr)));
+				auto T = ParseType(get_type);
+
+				auto VE = dynamic_cast<AST::Variable*>(Expr.get());
+				AST::Array* a = nullptr;
+
+				if(VE) { a = dynamic_cast<AST::Array*>(all_arrays[VE->Name]); }
+
+				inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::move(T), std::move(Expr)));
 				currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
+
+				if(VE)
+				{
+					if(check_if_is_in_array_list(VE->Name))
+					{
+						if(!a) { std::cout << "Internal Error.\n"; exit(1); }
+
+						inst_before_arg.push_back(std::make_unique<AST::Pure>(IdName + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
+						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, IdName + "_length"));
+					}
+				}
 
 				if(Lexer::CurrentToken != ',' && Lexer::CurrentToken != ')')
 					return AST::ExprError("Expected ',' or ')' after identifier.");
@@ -551,7 +581,69 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::GetElement) return ParseGetElement();
 		else if (Lexer::CurrentToken == Token::NewArray) return ParseNewArray();
 		else if (Lexer::CurrentToken == Token::String) return ParseNewString();
+		else if (Lexer::CurrentToken == Token::Exit) return ParseExit();
+		else if (Lexer::CurrentToken == Token::IntCast) return ParseIntCast();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseIntCast()
+	{
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add int cast arguments."); }
+
+		Lexer::GetNextToken();
+
+		auto I = ParseExpression();
+
+		if(Lexer::CurrentToken != ',') { AST::ExprError("Expected ',' to separate int cast arguments."); }
+
+		Lexer::GetNextToken();
+
+		auto T = ParseType();
+
+		Lexer::GetNextToken();
+
+		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close int cast arguments."); }
+
+		Lexer::GetNextToken();
+
+		return std::make_unique<AST::IntCast>(std::move(I), std::move(T));
+	}
+
+	static void DeclareExit()
+	{
+		auto exit_type = std::make_unique<AST::Void>();
+
+		std::vector<std::unique_ptr<AST::Variable>> args;
+
+		auto exit_param_type = std::make_unique<AST::i32>();
+		auto exit_param = std::make_unique<AST::Variable>(std::move(exit_param_type), "condition");
+
+		args.push_back(std::move(exit_param));
+
+		std::string name = "exit";
+		std::string type_string = "void";
+
+		auto exit_proto = std::make_unique<AST::Prototype>(std::move(exit_type), name, std::move(args), type_string);
+
+		Parser::is_exit_declared = true;
+
+		AST::exit_declare = exit_proto->codegen();
+	}
+
+	static std::unique_ptr<AST::Expression> ParseExit()
+	{
+		if(!Parser::is_exit_declared)
+		{
+			DeclareExit();
+		}
+
+		Lexer::GetNextToken();
+
+		auto T = ParseNumber();
+
+		return std::make_unique<AST::Exit>(std::move(T));
 	}
 
 	static std::unique_ptr<AST::Expression> ParseNewString()
@@ -607,6 +699,11 @@ struct Parser
 
 	static std::unique_ptr<AST::Expression> ParseGetElement()
 	{
+		if(!Parser::is_exit_declared)
+		{
+			DeclareExit();
+		}
+		
 		Lexer::GetNextToken();
 
 		if(Lexer::CurrentToken != '(') { AST::ExprError("Expected '(' to add get_element arguments."); }
@@ -621,6 +718,7 @@ struct Parser
 
 		Lexer::GetNextToken();
 
+		Parser::use_architechture_bit = true;
 		auto N = ParseExpression();
 
 		if(Lexer::CurrentToken != ')') { AST::ExprError("Expected ')' to close get_element arguments."); }
@@ -683,6 +781,8 @@ struct Parser
 		Lexer::GetNextToken();
 
 		std::string IdName = Lexer::IdentifierStr;
+
+		SetIdentToMainTarget(IdName);
 
 		Lexer::GetNextToken();
 
@@ -1027,7 +1127,9 @@ struct Parser
 		auto T = ParseType();
 
 		if(check_if_is_array(T.get()))
-			add_to_array_list(Name, Lexer::IdentifierStr);
+		{
+			add_to_array_list(Name, T.get());
+		}
 
 		add_to_variables_list(Name, Lexer::IdentifierStr);
 
@@ -1113,6 +1215,8 @@ struct Parser
 		else if(final_name == "u64") { unsigned_type = std::make_unique<AST::i64>(); }
 		else if(final_name == "u128") { unsigned_type = std::make_unique<AST::i128>(); }
 
+		else if (final_name == "void") { return std::make_unique<AST::Void>(); }
+
 		else if(final_name == "Array") {
 
 			Lexer::GetNextToken();
@@ -1181,13 +1285,28 @@ struct Parser
 
 			t->is_in_prototype = true;
 
+			auto il = std::make_unique<AST::Variable>(std::make_unique<AST::i32>(), idName + "_length");
+
+			auto get_a = dynamic_cast<AST::Array*>(t.get());
+			bool is_array = get_a != nullptr;
+
+			if(is_array)
+				add_to_array_list(idName, t.get());
+
 			add_to_loads_list(idName, Lexer::IdentifierStr);
 
 			Lexer::GetNextToken();
 
 			std::unique_ptr<AST::Variable> A = std::make_unique<AST::Variable>(std::move(t), idName);
+
 			A->is_argument = true;
+
 			ArgNames.push_back(std::move(A));
+
+			if(is_array)
+			{
+				ArgNames.push_back(std::move(il));
+			}
 
 			if (Lexer::CurrentToken != ',') break;
 
@@ -1198,19 +1317,31 @@ struct Parser
 
 		Lexer::GetNextToken();
 
-		if (Lexer::CurrentToken != ':') return AST::Prototype::Error("Expected ':' in prototype");
+		std::unique_ptr<AST::Type> PType;
+		std::string type_as_string;
 
-		Lexer::GetNextToken();
+		if (Lexer::CurrentToken != ':') { 
 
-		auto PType = ParseType();
+			PType = std::make_unique<AST::Void>();
 
-		std::string type_as_string = Lexer::IdentifierStr;
+			type_as_string = "void";
 
-		if(set_in_scope_function) set_new_function_in_scope(FnName, Lexer::IdentifierStr);
+			if(set_in_scope_function) set_new_function_in_scope(FnName, type_as_string);
+		}
+		else {
 
-		if (!PType) return AST::Prototype::Error("Expected type in prototype");
+			Lexer::GetNextToken();
 
-		Lexer::GetNextToken();
+			PType = ParseType();
+
+			type_as_string = Lexer::IdentifierStr;
+
+			if(set_in_scope_function) set_new_function_in_scope(FnName, type_as_string);
+
+			if (!PType) return AST::Prototype::Error("Expected type in prototype");
+
+			Lexer::GetNextToken();
+		}
 
 		std::string calling_convention;
 
@@ -1336,13 +1467,17 @@ struct Parser
 
 		Lexer::GetNextToken();
 
-		if(Lexer::CurrentToken != ':') AST::ExprError("Expected ':' to specify atom type.");
+		std::unique_ptr<AST::Type> AtomT;
 
-		Lexer::GetNextToken();
+		if(Lexer::CurrentToken != ':') { AtomT = std::make_unique<AST::Void>(); }
+		else {
 
-		auto AtomT = ParseType();
+			Lexer::GetNextToken();
 
-		Lexer::GetNextToken();
+			AtomT = ParseType();
+
+			Lexer::GetNextToken();
+		}
 
 		if(Lexer::CurrentToken != '{') AST::ExprError("Expected '{'.");
 

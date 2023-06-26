@@ -14,7 +14,10 @@ bool Parser::grab_target = true;
 std::unordered_map<std::string, std::string> Parser::all_variables;
 std::unordered_map<std::string, std::string> Parser::all_loads;
 std::unordered_map<std::string, std::string> Parser::all_prototypes;
-std::unordered_map<std::string, std::string> Parser::all_arrays;
+std::unordered_map<std::string, AST::Type*> Parser::all_arrays;
+
+bool Parser::is_exit_declared = false;
+bool Parser::use_architechture_bit = false;
 
 std::unordered_map<std::string, bool> Parser::vars_with_nothing;
 std::unordered_map<std::string, bool> Parser::verified_allocs;

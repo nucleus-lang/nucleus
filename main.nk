@@ -16,7 +16,6 @@
 # todo "\tTry to find a way to make atomic functions recursive.";
 # todo "\tIf not possible, add a recursion limit to them.";
 
-todo "Add Exit Codes to 'get_element()'.";
 todo "Add Array Safety between arguments.";
 
 atom check_if_bigger_than(a: i32, b: i32): i32 {
@@ -33,13 +32,18 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 	return load r;
 }
 
-extern print_content(content: Array<i8>): i32;
+# extern print_content(content: Array<i8>): i32;
+
+fn get_first_element_of_array(the_array: Array<i32>): i32
+{
+	pure equation: i32 = 0 - 1;
+	var first_el: i32 = get_element(the_array, equation);
+	return first_el;
+}
 
 fn main(): i32
 {
-	var my_first_array: Array<i8> = "Hello World!";
+	var message: Array<i32, 4> = new_array(0, 10, 20, 30);
 
-	print_content(my_first_array);
-
-	return 0;
+	return get_first_element_of_array(message);
 }

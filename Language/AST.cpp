@@ -9,6 +9,8 @@ std::string AST::CurrentIdentifier;
 std::map<std::string, std::unique_ptr<AST::Prototype>> AST::FunctionProtos;
 AST::Type* AST::current_proto_type = nullptr;
 
+llvm::Function* AST::exit_declare;
+
 llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r);
 llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s);
 llvm::Value* BlockCodegen(AST::Expression* i, llvm::BasicBlock* begin, llvm::BasicBlock* current, llvm::Value* inst);
@@ -17,6 +19,8 @@ ARGUMENT_LIST() generate_block_codegen(ARGUMENT_LIST() Body, llvm::BasicBlock* E
 std::map<std::string, std::unique_ptr<AST::Atom>> AST::Atoms;
 std::vector<AST::Atom*> AST::current_atom_line;
 bool AST::is_inside_atom = false;
+
+std::unordered_map<std::string, AST::Type*> all_array_ptrs;
 
 llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 {
@@ -137,6 +141,8 @@ llvm::Type* AST::i32::codegen() { return llvm::Type::getInt32Ty(*CodeGen::TheCon
 llvm::Type* AST::i64::codegen() { return llvm::Type::getInt64Ty(*CodeGen::TheContext); }
 llvm::Type* AST::i128::codegen() { return llvm::Type::getInt128Ty(*CodeGen::TheContext); }
 
+llvm::Type* AST::Void::codegen() { return llvm::Type::getVoidTy(*CodeGen::TheContext); }
+
 llvm::Type* AST::Array::codegen() { 
 
 	if(is_in_prototype) {
@@ -207,7 +213,9 @@ llvm::Value* AST::Call::codegen()
 	}
 
 	if (CalleeF->arg_size() != Args.size())
-		CodeGen::Error("Incorrect # arguments passed.\n");
+	{
+		CodeGen::Error("Incorrect # arguments passed in " + Callee + ". Call passed " + std::to_string(Args.size()) + ", function requires " + std::to_string(CalleeF->arg_size()) + ".\n");
+	}
 
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
@@ -267,6 +275,7 @@ llvm::Value* AST::Load::codegen()
 	{
 		if (llvm::AllocaInst* I = dyn_cast<llvm::AllocaInst>(c)) TV = I->getAllocatedType();
 		else if (llvm::LoadInst* I = dyn_cast<llvm::LoadInst>(c)) TV = I->getPointerOperandType();
+		else if (llvm::GetElementPtrInst* I = dyn_cast<llvm::GetElementPtrInst>(c)) TV = I->getResultElementType();
 		else if (dynamic_cast<AST::Link*>(Target.get()))
 		{
 			AST::Link* TTarget = (AST::Link*)Target.get();
@@ -396,6 +405,13 @@ llvm::Value* AST::Alloca::codegen()
 	llvm::Value* Alloca = nullptr;
 
 	Alloca = CodeGen::Builder->CreateAlloca(T->codegen(), 0, VarName.c_str());
+
+	if(dyn_cast<llvm::PointerType>(T->codegen()) && dynamic_cast<AST::Array*>(T.get()))
+	{
+		std::cout << "Added Array!\n";
+		auto A = dynamic_cast<AST::Array*>(T.get());
+		all_array_ptrs[VarName] = A->childType.get();
+	}
 
 	OldBindings.push_back(CodeGen::NamedValues[VarName]);
 	CodeGen::NamedValues[VarName] = Alloca;
@@ -821,16 +837,10 @@ llvm::Value* AST::If::codegen()
 	//CodeGen::push_block_to_list(IfBlock);
 	//CodeGen::push_block_to_list(ContinueBlock);
 
-	bool push_continue_block = true;
-
 	if(ElseBody.size() != 0)
 	{
 		ElseBlock = llvm::BasicBlock::Create(*CodeGen::TheContext, "else");
-
-		//CodeGen::push_block_to_list(ElseBlock);
-
 		CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ElseBlock);
-		push_continue_block = false;
 	}
 	else CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
 
@@ -839,15 +849,10 @@ llvm::Value* AST::If::codegen()
 	for(auto const& i: IfBody)
 		i->codegen();
 
+	CodeGen::Builder->CreateBr(ContinueBlock);
+
 	std::map<std::string, llvm::Value*> ElseEntryValues;
 	ElseEntryValues = get_entry_values("else");
-
-	if(/*!dynamic_cast<AST::Return*>(IfBody[IfBody.size() - 1].get()) &&*/ !uncontinue)
-	{
-		push_continue_block = true;
-		CodeGen::Builder->CreateBr(ContinueBlock);
-	}
-	else { push_continue_block = false; }
 
 	if(ElseBody.size() != 0)
 	{
@@ -859,19 +864,11 @@ llvm::Value* AST::If::codegen()
 		for(auto const& i: ElseBody)
 			i->codegen();
 
-		if(/*!dynamic_cast<AST::Return*>(ElseBody[ElseBody.size() - 1].get()) &&*/ !uncontinue)
-		{
-			push_continue_block = true;
-			CodeGen::Builder->CreateBr(ContinueBlock);
-		}
-		else { push_continue_block = false; }
+		CodeGen::Builder->CreateBr(ContinueBlock);
 	}
 
-	if(/*push_continue_block &&*/ !uncontinue)
-	{
-		TheFunction->getBasicBlockList().push_back(ContinueBlock);
-		CodeGen::Builder->SetInsertPoint(ContinueBlock);
-	}
+	TheFunction->getBasicBlockList().push_back(ContinueBlock);
+	CodeGen::Builder->SetInsertPoint(ContinueBlock);
 
 	llvm::BasicBlock* curr;
 
@@ -1059,14 +1056,69 @@ llvm::Value* AST::Pure::codegen()
 	return R;
 }
 
+std::unique_ptr<AST::Expression> apply_get_element_safety_checks(std::unique_ptr<AST::Expression> number, std::unique_ptr<AST::Expression> limit, std::string GetElementName)
+{
+	auto compare_v = std::make_unique<AST::Compare>(std::move(number), std::move(limit), 1);
+
+	llvm::Value* ConditionV = compare_v->codegen();
+
+	number = std::move(compare_v->A);
+
+	std::string bool_result;
+	llvm::raw_string_ostream rslt(bool_result);
+	ConditionV->print(rslt);
+
+	if(bool_result == "i1 true")
+	{
+		std::cout << GetElementName << "'s length is higher than the limit.\n";
+		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+		exit(1);
+	}
+
+	llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
+
+	llvm::BasicBlock* IfBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, "if", TheFunction);
+	llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
+
+	CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
+
+	CodeGen::Builder->SetInsertPoint(IfBlock);
+
+	auto exit_v = std::make_unique<AST::Number>("1");
+	exit_v->bit = 32;
+
+	auto exit_call = std::make_unique<AST::Exit>(std::move(exit_v));
+
+	exit_call->codegen();
+
+	CodeGen::Builder->CreateBr(ContinueBlock);
+
+	TheFunction->getBasicBlockList().push_back(ContinueBlock);
+	CodeGen::Builder->SetInsertPoint(ContinueBlock);
+
+	return std::move(number);
+}
+
 llvm::Value* AST::GetElement::codegen()
 {
 	llvm::Value* number_codegen = GetInst(number.get());
 	llvm::Value* target_codegen = GetInst(target.get());
 
-	llvm::Value* indexList[2] = {llvm::ConstantInt::get(number_codegen->getType(), 0), number_codegen};
+	llvm::Value* final_number_result = nullptr;
+
+	if(dynamic_cast<AST::Number*>(number.get())) {
+		auto T = dynamic_cast<AST::Number*>(number.get());
+
+		auto newT = std::make_unique<AST::Number>(std::to_string(T->intValue));
+		newT->bit = 32;
+		final_number_result = newT->codegen();
+	}
+	else { final_number_result = number_codegen; }
+
+	llvm::Value* indexList[2] = {llvm::ConstantInt::get(final_number_result->getType(), 0), final_number_result};
 
 	llvm::ArrayType* t = dyn_cast<llvm::ArrayType>(target_codegen->getType());
+	llvm::PointerType* pT = dyn_cast<llvm::PointerType>(target_codegen->getType());
 
 	if(t)
 	{
@@ -1075,39 +1127,31 @@ llvm::Value* AST::GetElement::codegen()
 		auto limit_v = std::make_unique<Number>(std::to_string(number_of_elements));
 		limit_v->bit = 32;
 
-		auto compare_v = std::make_unique<Compare>(std::move(number), std::move(limit_v), 1);
+		number = apply_get_element_safety_checks(std::move(number), std::move(limit_v), GetElementName);
+	}
+	else if(pT)
+	{
+		if(!dynamic_cast<AST::Variable*>(target.get()))
+			CodeGen::Error("Invalid 'get_element()' target.");
 
-		llvm::Value* ConditionV = compare_v->codegen();
+		auto V = dynamic_cast<AST::Variable*>(target.get());
 
-		number = std::move(compare_v->A);
+		auto find_il = std::make_unique<AST::Variable>(std::make_unique<AST::i32>(), V->Name + "_length");
 
-		std::string bool_result;
-		llvm::raw_string_ostream rslt(bool_result);
-		ConditionV->print(rslt);
+		std::string getName = V->Name;
 
-		if(bool_result == "i1 true")
-		{
-			std::cout << GetElementName << "'s length is higher than the limit.\n";
-			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-			exit(1);
-		}
+		auto T = all_array_ptrs[getName];
 
-		llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
+		if(!T)
+			CodeGen::Error("'T' is not found or is nullptr.");
 
-		llvm::BasicBlock* IfBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, "if", TheFunction);
-		llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
+		number = apply_get_element_safety_checks(std::move(number), std::move(find_il), GetElementName);
 
-		CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
+		llvm::Value* indexListPtr[1] = {final_number_result};
 
-		CodeGen::Builder->SetInsertPoint(IfBlock);
-
-		auto exit_v = std::make_unique<Number>("1");
-		exit_v->bit = 32;
-
-		CodeGen::Builder->CreateRet(exit_v->codegen());
-
-		TheFunction->getBasicBlockList().push_back(ContinueBlock);
-		CodeGen::Builder->SetInsertPoint(ContinueBlock);
+		llvm::Value* RPtr = CodeGen::Builder->CreateInBoundsGEP(T->codegen(), target->codegen(), llvm::ArrayRef<llvm::Value*>(indexListPtr, 1), GetElementName);
+		if(set_var) { CodeGen::NamedValues[GetElementName] = RPtr; }
+		return RPtr;
 	}
 
 	llvm::Value* R = CodeGen::Builder->CreateGEP(target_codegen->getType(), target->codegen(), llvm::ArrayRef<llvm::Value*>(indexList, 2), GetElementName);
@@ -1191,12 +1235,33 @@ llvm::Value* AST::NewArray::codegen()
 	return nullptr;
 }
 
+llvm::Value* AST::Exit::codegen()
+{
+	std::vector<llvm::Value*> ArgsV;
+	ArgsV.push_back(numb->codegen());
+
+	return CodeGen::Builder->CreateCall(AST::exit_declare, ArgsV);
+}
+
+llvm::Value* AST::IntCast::codegen()
+{
+	llvm::Value* target_cg = GetInst(target.get());
+
+	return CodeGen::Builder->CreateIntCast(target_cg, convert_to_type->codegen(), !convert_to_type->is_unsigned);
+}
+
 llvm::Function* AST::Prototype::codegen()
 {
 	std::vector<llvm::Type*> llvmArgs;
 
 	for (auto const& i: Args)
 	{
+		if(dyn_cast<llvm::PointerType>(i->T->codegen()) && dynamic_cast<AST::Array*>(i->T.get()))
+		{
+			auto A = dynamic_cast<AST::Array*>(i->T.get());
+			all_array_ptrs[i->Name] = A->childType.get();
+		}
+
 		llvmArgs.push_back(i->T->codegen());
 	}
 
@@ -1249,6 +1314,8 @@ llvm::Function* AST::Function::codegen()
 
 	CodeGen::allBasicBlocks.clear();
 
+	all_array_ptrs.clear();
+
 	if (Proto == nullptr)
 		CodeGen::Error("Function prototype is nullptr.\n");
 
@@ -1267,13 +1334,26 @@ llvm::Function* AST::Function::codegen()
 
 	CodeGen::Builder->SetInsertPoint(BB);
 
+	int return_count = 0;
+
 	for (auto const& i: Body)
 	{
 		if (i != nullptr)
 		{
 			if(can_generate_codegen(i.get()))
 				i->codegen();
+
+			if(dynamic_cast<AST::Return*>(i.get()))
+				return_count += 1;
 		}
+	}
+
+	if(return_count == 0)
+	{
+		if(dynamic_cast<AST::Void*>(P.PType.get()))
+			CodeGen::Builder->CreateRetVoid();
+		else
+			CodeGen::Error("This function doesn't have returns.");
 	}
 
 	TheFunction = apply_attributes(TheFunction);
