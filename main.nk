@@ -34,16 +34,23 @@ atom check_if_bigger_than(a: i32, b: i32): i32 {
 
 # extern print_content(content: Array<i8>): i32;
 
-fn get_first_element_of_array(the_array: Array<i32>): i32
+fn get_second_element_of_array(the_array: Array<i32>): i32
 {
-	pure equation: i32 = 0 - 1;
-	var first_el: i32 = get_element(the_array, equation);
+	var first_el: i32 = get_element(the_array, 1);
 	return first_el;
 }
 
 fn main(): i32
 {
-	var message: Array<i32, 4> = new_array(0, 10, 20, 30);
+	var message: Array<i8> = "Hello!\n";
+	var another_message: Array<i8> = "I love Nucleus!\n";
+	var third_message: Array<i8> = "The number i'm thinking of is: ";
+	var end_line: Array<i8> = "\n";
 
-	return get_first_element_of_array(message);
+	say(message);
+	say(another_message);
+	say(third_message); say_i8_number(30);
+	say(end_line);
+
+	return 0;
 }

@@ -2,7 +2,7 @@
 #define PARSER_HPP
 
 #include "Lexer.hpp"
-#include "AST.hpp"
+#include "IncludeCInternals.hpp"
 #include "ErrorHandler.hpp"
 #include "StaticAnalyzer.hpp"
 #include "TodoList.hpp"
@@ -1521,6 +1521,7 @@ struct Parser
 	static void MainLoop()
 	{
 		initialize_all_core_protos();
+		IncludeCInternals::start();
 
 		while (Lexer::CurrentToken != Token::EndOfFile)
 		{

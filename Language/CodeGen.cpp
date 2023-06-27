@@ -69,7 +69,7 @@ void CodeGen::Build()
 	llvm::raw_fd_ostream dest("output.ll", EC, llvm::sys::fs::OF_None);
 
 	TheModule->print(dest, nullptr);
-	clangCmd = "clang++ output.ll -Wno-override-module -o result";
+	clangCmd = "clang Nucleus/Std/*.c output.ll -Wno-override-module -o result";
 
 	std::cout << "Compiling...\n";
 
