@@ -12,12 +12,6 @@
 # 	return i + i2;
 # }
 
-# todo "Enhancement: Polish atomic functions:";
-# todo "\tTry to find a way to make atomic functions recursive.";
-# todo "\tIf not possible, add a recursion limit to them.";
-
-todo "Add Array Safety between arguments.";
-
 atom check_if_bigger_than(a: i32, b: i32): i32 {
 
 	pure r: i32 = 0;
@@ -40,17 +34,25 @@ fn get_second_element_of_array(the_array: Array<i32>): i32
 	return first_el;
 }
 
+todo "Add 'call' keyword.";
+
 fn main(): i32
 {
-	var message: Array<i8> = "Hello!\n";
-	var another_message: Array<i8> = "I love Nucleus!\n";
-	var third_message: Array<i8> = "The number i'm thinking of is: ";
-	var end_line: Array<i8> = "\n";
+	var yes: Array<i8, 255>;
+	var hello: Array<i8> = "Hello! What is your name?\n";
+	var message: Array<i8> = "Nice to meet you ";
+	var end_of_msg: Array<i8> = "! :D\n";
 
-	say(message);
-	say(another_message);
-	say(third_message); say_i8_number(30);
-	say(end_line);
+	pure hello_res: i32 = say(hello);
+
+	pure input_res: i32 = input(yes);
+
+	if(input_res == 0)
+	{
+		pure nice_res: i32 = say(message);
+		pure say_res: i32 = say(yes);
+		pure end_res: i32 = say(end_of_msg);
+	};
 
 	return 0;
 }

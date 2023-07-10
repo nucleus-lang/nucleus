@@ -151,6 +151,8 @@ llvm::Type* AST::Array::codegen() {
 		}
 	}
 
+	if(is_pointer) { return llvm::PointerType::getUnqual(childType->codegen()); }
+
 	return llvm::ArrayType::get(childType->codegen(), amount); 
 }
 
@@ -402,13 +404,18 @@ llvm::Value* AST::Alloca::codegen()
 	std::vector<llvm::Value*> OldBindings;
 	llvm::Function* TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
 
+	if(dynamic_cast<AST::Array*>(T.get()) && is_initialized_by_call)
+	{
+		std::cout << "T is Array and initialized by call!\n";
+		T->is_pointer = true;
+	}
+
 	llvm::Value* Alloca = nullptr;
 
 	Alloca = CodeGen::Builder->CreateAlloca(T->codegen(), 0, VarName.c_str());
 
 	if(dyn_cast<llvm::PointerType>(T->codegen()) && dynamic_cast<AST::Array*>(T.get()))
 	{
-		std::cout << "Added Array!\n";
 		auto A = dynamic_cast<AST::Array*>(T.get());
 		all_array_ptrs[VarName] = A->childType.get();
 	}

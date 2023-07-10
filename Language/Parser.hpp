@@ -134,10 +134,20 @@ struct Parser
 		return std::move(Result);
 	}
 
+	static void RuleCheck_Expressions(bool is_beginning, AST::Expression* ref)
+	{
+		if(is_beginning && dynamic_cast<AST::Call*>(ref))
+			AST::ExprError("Functions can't be implicitly called outside of variables.");
+	}
+
 	static std::unique_ptr<AST::Expression> ParseExpression(bool is_in_return = false)
 	{
+		bool is_beginning = Parser::grab_target;
+
 		auto LHS = ParsePrimary(is_in_return);
 		if (!LHS) return nullptr;
+
+		RuleCheck_Expressions(is_beginning, LHS.get());
 
 		return ParseBinaryOperator(std::move(LHS));
 	}
@@ -344,6 +354,9 @@ struct Parser
 					initialize_alloc(l_as_var->Name);
 				}
 				else if(l_as_alloc) {
+					if(dynamic_cast<AST::Call*>(R.get()))
+						L->is_initialized_by_call = true;
+
 					verify_alloc(l_as_alloc->VarName);
 					initialize_alloc(l_as_alloc->VarName);
 				}
@@ -1323,6 +1336,7 @@ struct Parser
 		if (Lexer::CurrentToken != ':') { 
 
 			PType = std::make_unique<AST::Void>();
+			PType->is_in_prototype = true;
 
 			type_as_string = "void";
 
@@ -1333,6 +1347,7 @@ struct Parser
 			Lexer::GetNextToken();
 
 			PType = ParseType();
+			PType->is_in_prototype = true;
 
 			type_as_string = Lexer::IdentifierStr;
 

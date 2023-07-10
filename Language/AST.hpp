@@ -29,6 +29,8 @@ struct AST
 
 		bool is_in_prototype = false;
 
+		bool is_pointer = false;
+
 		virtual llvm::Type* codegen() = 0;
 	};
 
@@ -49,6 +51,8 @@ struct AST
 		bool uncontinue = false;
 
 		bool dont_share_history = false;
+
+		bool is_initialized_by_call = false;
 
 		llvm::Value* codegenOnlyLoad();
 
