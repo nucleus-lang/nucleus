@@ -137,7 +137,12 @@ struct Parser
 	static void RuleCheck_Expressions(bool is_beginning, AST::Expression* ref)
 	{
 		if(is_beginning && dynamic_cast<AST::Call*>(ref))
-			AST::ExprError("Functions can't be implicitly called outside of variables.");
+		{
+			auto r = dynamic_cast<AST::Call*>(ref);
+
+			if(!r->is_explicit)
+				AST::ExprError("Functions can't be implicitly called outside of variables.");
+		}
 	}
 
 	static std::unique_ptr<AST::Expression> ParseExpression(bool is_in_return = false)
@@ -525,21 +530,44 @@ struct Parser
 				std::string get_type = get_type_from_variable(Parser::last_target);
 
 				add_to_loads_list(title, get_type);
-				auto T = ParseType(get_type);
+				std::unique_ptr<AST::Type> T;
+
+				auto DE = dynamic_cast<AST::Data*>(Expr.get());
+
+				//TODO: Get Type System needs to be reworked!
+				if(!DE)
+					T = ParseType(get_type);
 
 				auto VE = dynamic_cast<AST::Variable*>(Expr.get());
 				AST::Array* a = nullptr;
 
-				if(VE) { a = dynamic_cast<AST::Array*>(all_arrays[VE->Name]); }
+				if(VE) { 
+
+					if(all_arrays.find(VE->Name) != all_arrays.end())
+					{
+						a = dynamic_cast<AST::Array*>(all_arrays[VE->Name]); 
+					}
+				}
 
 				inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::move(T), std::move(Expr)));
 				currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
+
+				if(DE)
+				{
+					auto DE_L = dynamic_cast<AST::NewArray*>(DE->initializer.get());
+
+					if(DE_L)
+					{
+						inst_before_arg.push_back(std::make_unique<AST::Pure>(title + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(DE_L->items.size() - 1))));
+						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title + "_length"));
+					}
+				}
 
 				if(VE)
 				{
 					if(check_if_is_in_array_list(VE->Name))
 					{
-						if(!a) { std::cout << "Internal Error.\n"; exit(1); }
+						if(!a) { std::cout << "Internal Error: " << VE->Name << " is not an array, but its found in the array list.\n"; exit(1); }
 
 						inst_before_arg.push_back(std::make_unique<AST::Pure>(IdName + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
 						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, IdName + "_length"));
@@ -596,7 +624,44 @@ struct Parser
 		else if (Lexer::CurrentToken == Token::String) return ParseNewString();
 		else if (Lexer::CurrentToken == Token::Exit) return ParseExit();
 		else if (Lexer::CurrentToken == Token::IntCast) return ParseIntCast();
+		else if (Lexer::CurrentToken == Token::Call) return ParseCall();
+		else if (Lexer::CurrentToken == Token::Data) return ParseData();
 		else return AST::ExprError("Unknown token when expecting an expression.");
+	}
+
+	static std::unique_ptr<AST::Expression> ParseData()
+	{
+		Lexer::GetNextToken();
+
+		auto E = ParseExpression();
+
+		if(dynamic_cast<AST::Variable*>(E.get()))
+		{
+			AST::Variable* e_res = dynamic_cast<AST::Variable*>(E.get());
+			AST::ExprError("'" + e_res->Name + "' can't be used because is not an initializer.");
+		}
+
+		return std::make_unique<AST::Data>(std::move(E));
+	}
+
+	static std::unique_ptr<AST::Expression> ParseCall()
+	{
+		Lexer::GetNextToken();
+
+		auto E = ParseIdentifier();
+
+		if(dynamic_cast<AST::Variable*>(E.get()))
+		{
+			AST::Variable* e_res = dynamic_cast<AST::Variable*>(E.get());
+			AST::ExprError("'" + e_res->Name + "' is not a function.");
+		}
+
+		if(!dynamic_cast<AST::Call*>(E.get()))
+			AST::ExprError("This is not a function.");
+
+		E->is_explicit = true;
+
+		return E;
 	}
 
 	static std::unique_ptr<AST::Expression> ParseIntCast()
@@ -1259,7 +1324,11 @@ struct Parser
 			return std::make_unique<AST::Array>(std::move(T), amount);
 		}
 
-		if(unsigned_type == nullptr) AST::ExprError("Unknown type '" + Lexer::IdentifierStr + "'.");
+		if(unsigned_type == nullptr) 
+		{
+			//return std::make_unique<AST::i32>();
+			AST::ExprError("Unknown type '" + Lexer::IdentifierStr + "'.");
+		}
 
 		unsigned_type->is_unsigned = true;
 

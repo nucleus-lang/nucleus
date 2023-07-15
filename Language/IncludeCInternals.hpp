@@ -46,7 +46,7 @@ struct IncludeCInternals
 		AST::FunctionProtos["i8_to_string"] = std::move(P);
 	}
 
-	static void say_i8_number()
+	static void say_i8()
 	{
 		std::vector<std::unique_ptr<AST::Variable>> ArgNames;
 
@@ -57,10 +57,27 @@ struct IncludeCInternals
 				)
 			);
 
-		auto P = std::make_unique<AST::Prototype>(std::make_unique<AST::i32>(), "say_i8_number", std::move(ArgNames), "i32");
+		auto P = std::make_unique<AST::Prototype>(std::make_unique<AST::i32>(), "say_i8", std::move(ArgNames), "i32");
 
 		P->codegen();
-		AST::FunctionProtos["say_i8_number"] = std::move(P);
+		AST::FunctionProtos["say_i8"] = std::move(P);
+	}
+
+	static void say_i32()
+	{
+		std::vector<std::unique_ptr<AST::Variable>> ArgNames;
+
+		ArgNames.push_back(
+			std::make_unique<AST::Variable>(
+				std::make_unique<AST::i32>(),
+				"number"
+				)
+			);
+
+		auto P = std::make_unique<AST::Prototype>(std::make_unique<AST::i32>(), "say_i32", std::move(ArgNames), "i32");
+
+		P->codegen();
+		AST::FunctionProtos["say_i32"] = std::move(P);
 	}
 
 	static void input()
@@ -87,12 +104,42 @@ struct IncludeCInternals
 		AST::FunctionProtos["input"] = std::move(P);
 	}
 
+	static void random_between()
+	{
+		std::vector<std::unique_ptr<AST::Variable>> ArgNames;
+
+		ArgNames.push_back(
+			std::make_unique<AST::Variable>(
+				std::make_unique<AST::i32>(),
+				"min"
+				)
+			);
+
+		ArgNames.push_back(
+			std::make_unique<AST::Variable>(
+				std::make_unique<AST::i32>(),
+				"max"
+				)
+			);
+
+		auto P = std::make_unique<AST::Prototype>(std::make_unique<AST::i32>(), "random_between", std::move(ArgNames), "i32");
+
+		P->codegen();
+		AST::FunctionProtos["random_between"] = std::move(P);
+	}
+
 	static void start()
 	{
+		// Say.c
 		say();
 		i8_to_string();
-		say_i8_number();
+		//i32_to_string();
+		say_i8();
+		say_i32();
 		input();
+
+		// Random.c
+		random_between();
 	}
 };
 

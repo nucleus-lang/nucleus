@@ -51,6 +51,8 @@ int input(char* string, int length)
 }
 
 char i8_to_string_res[4];
+char i32_to_string_res[11];
+
 char* i8_to_string(char n)
 {
 	itoa(n, i8_to_string_res, 10);
@@ -58,9 +60,21 @@ char* i8_to_string(char n)
 	return i8_to_string_res;
 }
 
-int say_i8_number(char n)
+char* i32_to_string(int n)
+{
+	itoa(n, i32_to_string_res, 10);
+
+	return i32_to_string_res;
+}
+
+int say_i8(char n)
 {
 	return say(i8_to_string(n), 4);
+}
+
+int say_i32(int n)
+{
+	return say(i32_to_string(n), 11);
 }
 
 #endif

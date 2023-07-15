@@ -54,6 +54,10 @@ struct AST
 
 		bool is_initialized_by_call = false;
 
+		bool is_explicit = false;
+
+		bool is_data = false;
+
 		llvm::Value* codegenOnlyLoad();
 
 		llvm::Value* CurrentInstruction();
@@ -331,6 +335,17 @@ struct AST
 
 		IntCast(std::unique_ptr<Expression> target, std::unique_ptr<Type> convert_to_type) :
 			target(std::move(target)), convert_to_type(std::move(convert_to_type)) {}
+
+		llvm::Value* codegen() override;
+	};
+
+	struct Data : public Expression
+	{
+		std::unique_ptr<Expression> initializer;
+
+		Data(std::unique_ptr<Expression> initializer) : initializer(std::move(initializer)) {}
+
+		int get_length();
 
 		llvm::Value* codegen() override;
 	};

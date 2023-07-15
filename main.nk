@@ -1,58 +1,9 @@
-# fn calculate_fib(n: i32): i32 {
-# 	if compare.is_less_than_or_equals(n, 1) {
-# 		return load n;
-# 	};
-#
-# 	pure r1: i32 = n - 1;
-# 	pure r2: i32 = n - 2;
-#
-# 	pure i: i32 = calculate_fib(r1);
-# 	pure i2: i32 = calculate_fib(r2);
-#
-# 	return i + i2;
-# }
-
-atom check_if_bigger_than(a: i32, b: i32): i32 {
-
-	pure r: i32 = 0;
-
-	if a > b { r += a; };
-
-	if a < 30 {
-		if a != 16 { r += 5; };
-		r += 3;
-	};
-
-	return load r;
-}
-
-# extern print_content(content: Array<i8>): i32;
-
-fn get_second_element_of_array(the_array: Array<i32>): i32
-{
-	var first_el: i32 = get_element(the_array, 1);
-	return first_el;
-}
-
-todo "Add 'call' keyword.";
+todo "Add 'data' for array initialization.";
 
 fn main(): i32
 {
-	var yes: Array<i8, 255>;
-	var hello: Array<i8> = "Hello! What is your name?\n";
-	var message: Array<i8> = "Nice to meet you ";
-	var end_of_msg: Array<i8> = "! :D\n";
-
-	pure hello_res: i32 = say(hello);
-
-	pure input_res: i32 = input(yes);
-
-	if(input_res == 0)
-	{
-		pure nice_res: i32 = say(message);
-		pure say_res: i32 = say(yes);
-		pure end_res: i32 = say(end_of_msg);
-	};
+	call say(data "Hello World!\n");
+	call say(data "Nucleus just got more easier to use!\n");
 
 	return 0;
 }

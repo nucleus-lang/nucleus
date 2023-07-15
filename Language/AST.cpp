@@ -28,7 +28,7 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 
 	if (r == nullptr) CodeGen::Error("r is nullptr");
 
-	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v)) return r;
+	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v) || dynamic_cast<AST::Data*>(v)) return r;
 
 	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
 		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
@@ -1170,76 +1170,101 @@ llvm::Value* AST::GetElement::codegen()
 
 llvm::Value* AST::NewArray::codegen()
 {
-	if(target == nullptr) { CodeGen::Error("NewArray Target not found."); }
-
-	if(is_resizable)
+	if(!is_data)
 	{
-		auto TPtr = dynamic_cast<AST::Alloca*>(target.get());
-
-		auto TPtrType = dynamic_cast<AST::Array*>(TPtr->T.get());
-
-		auto final_array_type = std::make_unique<AST::Array>(std::move(TPtrType->childType), items.size());
-
-		std::string save_name = TPtr->VarName;
-		
-		target = std::make_unique<AST::Alloca>(std::move(final_array_type), save_name);
-	}
-
-	llvm::Value* target_cg = GetInst(target.get());
-
-	if(target_cg == nullptr) {
-		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-		CodeGen::Error("NewArray Target's leaf not found.");
-	}
-
-	llvm::ArrayType* target_type = dyn_cast<llvm::ArrayType>(target_cg->getType());
-
-	if(target_type == nullptr) {
-		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-		CodeGen::Error("NewArray Target's Type is not an array.");
-	}
-
-	uint64_t num_elements = target_type->getNumElements();
-
-	if(num_elements < items.size())
-	{
-		std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-		CodeGen::Error("'new_array()' size is higher than the Array.");
-	}
-
-	int count;
-	for(auto const& i: items)
-	{
-		llvm::Value* i_cg = GetInst(i.get());
-
-		if(i_cg == nullptr)
+		if(target == nullptr) { CodeGen::Error("NewArray Target not found."); }
+	
+		if(is_resizable)
 		{
-			CodeGen::Error("i_cg is nullptr.");
+			auto TPtr = dynamic_cast<AST::Alloca*>(target.get());
+	
+			auto TPtrType = dynamic_cast<AST::Array*>(TPtr->T.get());
+	
+			auto final_array_type = std::make_unique<AST::Array>(std::move(TPtrType->childType), items.size());
+	
+			std::string save_name = TPtr->VarName;
+			
+			target = std::make_unique<AST::Alloca>(std::move(final_array_type), save_name);
 		}
-
-		if(i_cg->getType() != target_type->getArrayElementType())
+	
+		llvm::Value* target_cg = GetInst(target.get());
+	
+		if(target_cg == nullptr) {
+			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+			CodeGen::Error("NewArray Target's leaf not found.");
+		}
+	
+		llvm::ArrayType* target_type = dyn_cast<llvm::ArrayType>(target_cg->getType());
+	
+		if(target_type == nullptr) {
+			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+			CodeGen::Error("NewArray Target's Type is not an array.");
+		}
+	
+		uint64_t num_elements = target_type->getNumElements();
+	
+		if(num_elements < items.size())
 		{
 			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
-			CodeGen::Error("Item Type is not the same as Array Type.");
+			CodeGen::Error("'new_array()' size is higher than the Array.");
 		}
 
-		auto int_type = llvm::Type::getInt32Ty(*CodeGen::TheContext);
-		llvm::Value* indexList[2] = {llvm::ConstantInt::get(int_type, 0), llvm::ConstantInt::get(int_type, count)};
-
-		auto load_inst = dyn_cast<llvm::LoadInst>(target_cg);
-
-		if(load_inst == nullptr)
+		int count;
+		for(auto const& i: items)
 		{
-			CodeGen::Error("load_inst is nullptr.");
+			llvm::Value* i_cg = GetInst(i.get());
+
+			if(i_cg == nullptr)
+			{
+				CodeGen::Error("i_cg is nullptr.");
+			}
+
+			if(i_cg->getType() != target_type->getArrayElementType())
+			{
+				std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
+				CodeGen::Error("Item Type is not the same as Array Type.");
+			}
+
+			auto int_type = llvm::Type::getInt32Ty(*CodeGen::TheContext);
+			llvm::Value* indexList[2] = {llvm::ConstantInt::get(int_type, 0), llvm::ConstantInt::get(int_type, count)};
+
+			auto load_inst = dyn_cast<llvm::LoadInst>(target_cg);
+
+			if(load_inst == nullptr)
+			{
+				CodeGen::Error("load_inst is nullptr.");
+			}
+
+			llvm::Value* R = CodeGen::Builder->CreateGEP(target_type, load_inst->getPointerOperand(), llvm::ArrayRef<llvm::Value*>(indexList, 2), "getelement");
+			llvm::Value* S = CodeGen::Builder->CreateStore(i_cg, R, "arrayinit");
+
+			count++;
 		}
 
-		llvm::Value* R = CodeGen::Builder->CreateGEP(target_type, load_inst->getPointerOperand(), llvm::ArrayRef<llvm::Value*>(indexList, 2), "getelement");
-		llvm::Value* S = CodeGen::Builder->CreateStore(i_cg, R, "arrayinit");
-
-		count++;
+		return nullptr;
 	}
 
-	return nullptr;
+	std::vector<llvm::Constant*> values;
+
+	llvm::ArrayType* get_t;
+
+	for(auto const& i: items)
+	{
+		auto c = GetInst(i.get());
+		if(!dyn_cast<llvm::Constant>(c))
+		{
+			CodeGen::Error("One of the items is not constant");
+		}
+
+		if(!get_t)
+			get_t = llvm::ArrayType::get(c->getType(), items.size());
+
+		values.push_back(dyn_cast<llvm::Constant>(c));
+	}
+
+	if(!get_t) { CodeGen::Error("Constant Array Type not initialized."); }
+
+	return llvm::ConstantArray::get(get_t, values);
 }
 
 llvm::Value* AST::Exit::codegen()
@@ -1255,6 +1280,20 @@ llvm::Value* AST::IntCast::codegen()
 	llvm::Value* target_cg = GetInst(target.get());
 
 	return CodeGen::Builder->CreateIntCast(target_cg, convert_to_type->codegen(), !convert_to_type->is_unsigned);
+}
+
+llvm::Value* AST::Data::codegen()
+{
+	initializer->is_data = true;
+	auto init = initializer->codegen();
+
+	llvm::Constant* init_c = dyn_cast<llvm::Constant>(init);
+
+	if(!init_c) { CodeGen::Error("Data Initializer is not Constant.\n"); }
+
+	auto globalVariable = new llvm::GlobalVariable(*CodeGen::TheModule, init->getType(), false, llvm::GlobalVariable::ExternalLinkage, init_c, "");
+
+	return globalVariable;
 }
 
 llvm::Function* AST::Prototype::codegen()

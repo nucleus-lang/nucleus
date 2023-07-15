@@ -56,6 +56,10 @@ enum Token
 	Exit = -30,
 
 	IntCast = -31,
+
+	Call = -32,
+
+	Data = -33,
 };
 
 struct Lexer
@@ -300,6 +304,10 @@ struct Lexer
 		else if (IsIdentifier("exit")) return Token::Exit;
 
 		else if (IsIdentifier("int_cast")) return Token::IntCast;
+
+		else if (IsIdentifier("call")) return Token::Call;
+
+		else if (IsIdentifier("data")) return Token::Data;
 		return Token::Identifier;
 	}
 
