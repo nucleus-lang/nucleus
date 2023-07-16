@@ -28,6 +28,7 @@ void Project::CreateMainNk(std::string name)
 	std::string path = name + "/main.nk";
 
 	std::string content = "fn main(): i32 {\n";
+	content += "\tcall say(data \"Hello World!\\n\");\n";
 	content += "\treturn 0;\n";
 	content += "}\n";
 
@@ -60,7 +61,7 @@ void Project::Create(std::string name)
 
 	std::filesystem::create_directory(name);
 
-	CreateTOML(name);
+	//CreateTOML(name);
 
 	CreateMainNk(name);
 

@@ -61,6 +61,23 @@ void CodeGen::Error(std::string str)
 	exit(1);
 }
 
+std::string get_binary_directory()
+{
+	std::string output;
+
+	#ifdef _WIN32
+		TCHAR szFileName[MAX_PATH];
+
+		GetModuleFileName(NULL, szFileName, MAX_PATH);
+
+    	output = std::string(szFileName);
+
+    	std::filesystem::path p = output;
+
+    	return p.parent_path().string();
+	#endif
+}
+
 void CodeGen::Build()
 {
 	std::string clangCmd;
@@ -68,9 +85,24 @@ void CodeGen::Build()
 	std::error_code EC;
 	llvm::raw_fd_ostream dest("output.ll", EC, llvm::sys::fs::OF_None);
 
-	TheModule->print(dest, nullptr);
-	clangCmd = "clang Nucleus/Std/*.c output.ll -Wno-override-module -o result";
+	std::vector<std::string> include_files;
 
+	include_files.push_back(get_binary_directory() + "/Nucleus/Std/*.c");
+
+	TheModule->print(dest, nullptr);
+	clangCmd = "clang ";
+
+	for(auto i : include_files)
+	{
+		clangCmd += "\"";
+		clangCmd += i;
+		clangCmd += "\"";
+		clangCmd += " ";
+	}
+
+	clangCmd += "output.ll -o result";
+
+	//std::cout << clangCmd << "\n";
 	std::cout << "Compiling...\n";
 
 	system(clangCmd.c_str());

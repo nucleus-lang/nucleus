@@ -1,9 +1,40 @@
+todo "Remove instruction names if they're 'void' type.";
 todo "Add 'data' for array initialization.";
+
+fn say_hi(): i32
+{
+	call say(data "Hello! I'm Nucleus!\n");	
+	return 0;
+}
+
+fn nice_to_meet_you(i: Array<i8>): i32
+{
+	load first_el: i8 = get_element(i, 0);
+
+	if(first_el != '\0')
+	{
+		call say(data "Nice to meet you ");
+		call say(i);
+		call say(data "! :D\n");
+	}
+	else
+	{
+		call say(data "Oh, ok... You don't want to say your name, fair enough :(.\n");
+	};
+
+	return 0;
+}
 
 fn main(): i32
 {
-	call say(data "Hello World!\n");
-	call say(data "Nucleus just got more easier to use!\n");
+	var get_input: Array<i8, 255>;
+
+	call say_hi();
+	
+	call say(data "What's your name?\n");
+	call input(get_input);
+
+	call nice_to_meet_you(get_input);
 
 	return 0;
 }

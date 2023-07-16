@@ -567,10 +567,10 @@ struct Parser
 				{
 					if(check_if_is_in_array_list(VE->Name))
 					{
-						if(!a) { std::cout << "Internal Error: " << VE->Name << " is not an array, but its found in the array list.\n"; exit(1); }
+						if(a->amount - 1 != -1)
+							inst_before_arg.push_back(std::make_unique<AST::Pure>(VE->Name + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
 
-						inst_before_arg.push_back(std::make_unique<AST::Pure>(IdName + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
-						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, IdName + "_length"));
+						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, VE->Name + "_length"));
 					}
 				}
 
