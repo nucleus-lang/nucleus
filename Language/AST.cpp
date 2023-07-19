@@ -1147,10 +1147,12 @@ llvm::Value* AST::GetElement::codegen()
 
 		std::string getName = V->Name;
 
-		auto T = all_array_ptrs[getName];
+		AST::Type* T = nullptr;
 
-		if(!T)
+		if(all_array_ptrs.find(getName) == all_array_ptrs.end())
 			CodeGen::Error("'T' is not found or is nullptr.");
+
+		T = all_array_ptrs[getName];
 
 		number = apply_get_element_safety_checks(std::move(number), std::move(find_il), GetElementName);
 
@@ -1173,28 +1175,39 @@ llvm::Value* AST::NewArray::codegen()
 	if(!is_data)
 	{
 		if(target == nullptr) { CodeGen::Error("NewArray Target not found."); }
+
+		llvm::Type* t_type = nullptr;
+
+		auto TPtr = dynamic_cast<AST::Alloca*>(target.get()); VERIFY(TPtr)
+
+		std::string save_name = TPtr->VarName;
+
+		AST::CurrentIdentifier = save_name;
 	
 		if(is_resizable)
 		{
-			auto TPtr = dynamic_cast<AST::Alloca*>(target.get());
-	
-			auto TPtrType = dynamic_cast<AST::Array*>(TPtr->T.get());
-	
+			auto TPtrType = dynamic_cast<AST::Array*>(TPtr->T.get()); VERIFY(TPtrType)
+
 			auto final_array_type = std::make_unique<AST::Array>(std::move(TPtrType->childType), items.size());
-	
-			std::string save_name = TPtr->VarName;
+
+			t_type = final_array_type->codegen(); VERIFY(t_type)
 			
-			target = std::make_unique<AST::Alloca>(std::move(final_array_type), save_name);
+			auto new_target = std::make_unique<AST::Alloca>(std::move(final_array_type), save_name);
+
+			target = std::move(new_target);
 		}
 	
-		llvm::Value* target_cg = GetInst(target.get());
+		llvm::Value* target_cg = GetInst(target.get()); VERIFY(target_cg)
+
+		if(t_type == nullptr)
+			t_type = target_cg->getType(); VERIFY(t_type)
 	
 		if(target_cg == nullptr) {
 			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
 			CodeGen::Error("NewArray Target's leaf not found.");
 		}
 	
-		llvm::ArrayType* target_type = dyn_cast<llvm::ArrayType>(target_cg->getType());
+		llvm::ArrayType* target_type = dyn_cast<llvm::ArrayType>(t_type);
 	
 		if(target_type == nullptr) {
 			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
@@ -1208,6 +1221,13 @@ llvm::Value* AST::NewArray::codegen()
 			std::cout << "TODO: Link Parser Error System with the CodeGen.\n";
 			CodeGen::Error("'new_array()' size is higher than the Array.");
 		}
+
+		llvm::Value* pointer_operand;
+
+		llvm::LoadInst* load_inst = dyn_cast<llvm::LoadInst>(target_cg); 
+
+		if (load_inst) { pointer_operand = load_inst->getPointerOperand(); }
+		//else { pointer_operand = target_cg; }
 
 		int count;
 		for(auto const& i: items)
@@ -1228,14 +1248,7 @@ llvm::Value* AST::NewArray::codegen()
 			auto int_type = llvm::Type::getInt32Ty(*CodeGen::TheContext);
 			llvm::Value* indexList[2] = {llvm::ConstantInt::get(int_type, 0), llvm::ConstantInt::get(int_type, count)};
 
-			auto load_inst = dyn_cast<llvm::LoadInst>(target_cg);
-
-			if(load_inst == nullptr)
-			{
-				CodeGen::Error("load_inst is nullptr.");
-			}
-
-			llvm::Value* R = CodeGen::Builder->CreateGEP(target_type, load_inst->getPointerOperand(), llvm::ArrayRef<llvm::Value*>(indexList, 2), "getelement");
+			llvm::Value* R = CodeGen::Builder->CreateGEP(target_type, pointer_operand, llvm::ArrayRef<llvm::Value*>(indexList, 2), "getelement");
 			llvm::Value* S = CodeGen::Builder->CreateStore(i_cg, R, "arrayinit");
 
 			count++;
@@ -1304,6 +1317,7 @@ llvm::Function* AST::Prototype::codegen()
 	{
 		if(dyn_cast<llvm::PointerType>(i->T->codegen()) && dynamic_cast<AST::Array*>(i->T.get()))
 		{
+			i->T->is_pointer = true;
 			auto A = dynamic_cast<AST::Array*>(i->T.get());
 			all_array_ptrs[i->Name] = A->childType.get();
 		}

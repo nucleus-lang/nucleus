@@ -1138,6 +1138,9 @@ struct Parser
 
 		std::string Name = Lexer::IdentifierStr;
 
+		ResetTarget();
+		SetIdentToMainTarget(Name);
+
 		Lexer::GetNextToken();
 
 		if (Lexer::CurrentToken != ':') return AST::ExprError("Expected ':' to set Load type.");
@@ -1194,6 +1197,7 @@ struct Parser
 
 		std::string Name = Lexer::IdentifierStr;
 
+		ResetTarget();
 		SetIdentToMainTarget(Name);
 
 		Lexer::GetNextToken();

@@ -14,6 +14,8 @@
 #define ATOM_ARG_LIST() std::vector<std::pair<std::string, std::unique_ptr<AST::Type>>>
 #define ARGUMENT_LIST() std::vector<std::unique_ptr<AST::Expression>>
 
+#define VERIFY(x) if(x == nullptr) { std::cout << #x << " is nullptr\n"; exit(1); }
+
 struct AST
 {
 	static llvm::Value* CurrInst;
