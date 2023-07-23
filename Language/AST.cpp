@@ -13,7 +13,6 @@ llvm::Function* AST::exit_declare;
 
 llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r);
 llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s);
-llvm::Value* BlockCodegen(AST::Expression* i, llvm::BasicBlock* begin, llvm::BasicBlock* current, llvm::Value* inst);
 ARGUMENT_LIST() generate_block_codegen(ARGUMENT_LIST() Body, llvm::BasicBlock* EntryBlock, llvm::BasicBlock* LoopBlock);
 
 std::map<std::string, std::unique_ptr<AST::Atom>> AST::Atoms;
@@ -31,7 +30,7 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v) || dynamic_cast<AST::Data*>(v)) return r;
 
 	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
-		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
+		if (CodeGen::NamedPures[AST::CurrentIdentifier].second != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier].second;
 
 	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
 	{
@@ -54,18 +53,33 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 	return CreateAutoLoad(v, r);
 }
 
-llvm::Value* GetCoreInst(AST::Expression* v)
+llvm::Value* GetCoreInst(AST::Expression* v, std::string name)
 {
-	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
-		if (CodeGen::NamedPures[AST::CurrentIdentifier] != nullptr) return CodeGen::NamedPures[AST::CurrentIdentifier];
+	if (CodeGen::NamedPures.find(name) != CodeGen::NamedPures.end())
+		if (CodeGen::NamedPures[name].first != nullptr) return CodeGen::NamedPures[name].first;
 
-	if (CodeGen::NamedArguments.find(AST::CurrentIdentifier) != CodeGen::NamedArguments.end())
-		return CodeGen::NamedArguments[AST::CurrentIdentifier].first;
+	if (CodeGen::NamedArguments.find(name) != CodeGen::NamedArguments.end())
+		return CodeGen::NamedArguments[name].first;
 
-	if (CodeGen::NamedLoads.find(AST::CurrentIdentifier) != CodeGen::NamedLoads.end())
-		return CodeGen::NamedLoads[AST::CurrentIdentifier].first;
+	if (CodeGen::NamedLoads.find(name) != CodeGen::NamedLoads.end())
+		return CodeGen::NamedLoads[name].first;
 
 	return v->codegen();
+}
+
+void initialize_all_after_phis() {
+
+	MAP_FOREACH_PAIR(std::string, llvm::Value*, llvm::Value*, CodeGen::NamedPures, it) {
+		if(it->second.second != nullptr) { GetPHI(it->first, it->second.first, it->second.second); }
+	}
+
+	MAP_FOREACH_PAIR(std::string, llvm::Argument*, llvm::Value*, CodeGen::NamedArguments, it2) {
+		if(it2->second.second != nullptr) { GetPHI(it2->first, it2->second.first, it2->second.second); }
+	}
+
+	MAP_FOREACH_PAIR(std::string, llvm::LoadInst*, llvm::Value*, CodeGen::NamedLoads, it3) {
+		if(it3->second.second != nullptr) { GetPHI(it3->first, it3->second.first, it3->second.second); }
+	}
 }
 
 void AddInst(std::string target_name, llvm::Value* r);
@@ -242,7 +256,7 @@ llvm::Value* AST::Return::codegen()
 {
 	llvm::Value* c = GetInst(Expr.get());
 	std::string target_name = AST::CurrentIdentifier;
-	c = GetPHI(target_name, GetCoreInst(Expr.get()), c);
+	c = GetPHI(target_name, GetCoreInst(Expr.get(), target_name), c);
 
 	if(!AST::is_inside_atom)
 		return CodeGen::Builder->CreateRet(c);
@@ -313,6 +327,25 @@ llvm::Value* AST::Load::codegen()
 
 llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s)
 {
+	std::vector<llvm::BasicBlock*> blockPreds;
+
+	llvm::BasicBlock* B = CodeGen::Builder->GetInsertBlock();
+	for (auto it = llvm::pred_begin(B), et = llvm::pred_end(B); it != et; ++it)
+	{
+		llvm::BasicBlock* predecessor = *it;
+	
+		blockPreds.push_back(predecessor);
+	}
+	
+	llvm::BasicBlock* leftBB = nullptr;
+	llvm::BasicBlock* rightBB = nullptr;
+
+	if(blockPreds.size() == 2) {
+
+		leftBB = blockPreds[0];
+		rightBB = blockPreds[1];
+	}
+
 	if(CodeGen::NamedPHILoads.find(name) != CodeGen::NamedPHILoads.end())
 	{
 		if(CodeGen::NamedPHILoads[name].second != CodeGen::Builder->GetInsertBlock())
@@ -322,8 +355,31 @@ llvm::Value* GetPHI(std::string name, llvm::Value* l, llvm::Value* s)
 			if(s == nullptr)
 				CodeGen::Error("Second argument not found!");
 
-			P->addIncoming(l, CodeGen::NamedPHILoads[name].first);
-			P->addIncoming(s, CodeGen::NamedPHILoads[name].second);
+			llvm::Value* final_s = nullptr;
+
+			std::vector<llvm::BasicBlock*> blockPreds;
+
+			llvm::BasicBlock* B = CodeGen::Builder->GetInsertBlock();
+			for (auto it = llvm::pred_begin(B), et = llvm::pred_end(B); it != et; ++it)
+			{
+				llvm::BasicBlock* predecessor = *it;
+		
+				blockPreds.push_back(predecessor);
+			}
+
+			if(blockPreds.size() == 2) {
+
+				leftBB = blockPreds[0];
+				rightBB = blockPreds[1];
+			}
+			else {
+
+				leftBB = CodeGen::NamedPHILoads[name].first;
+				rightBB = CodeGen::NamedPHILoads[name].second;
+			}
+
+			P->addIncoming(l, leftBB);
+			P->addIncoming(final_s, rightBB);
 
 			CodeGen::NamedPHILoads.erase(name);
 
@@ -371,7 +427,7 @@ llvm::Value* AST::Variable::codegen()
 
 			if(!V3) {
 
-				llvm::Value* V4 = CodeGen::NamedPures[Name];
+				llvm::Value* V4 = CodeGen::NamedPures[Name].first;
 
 				if(!V4) CodeGen::Error("Unknown variable name: " + Name + "\n");
 
@@ -464,7 +520,7 @@ llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 
 void AddInst(std::string target_name, llvm::Value* r)
 {
-	if (CodeGen::NamedPures.find(target_name) != CodeGen::NamedPures.end()) { CodeGen::NamedPures[target_name] = r; return; }
+	if (CodeGen::NamedPures.find(target_name) != CodeGen::NamedPures.end()) { CodeGen::NamedPures[target_name].second = r; return; }
 	else if (CodeGen::NamedArguments.find(target_name) != CodeGen::NamedArguments.end()) { CodeGen::NamedArguments[target_name].second = r; return; }
 	else if (CodeGen::NamedLoads.find(target_name) != CodeGen::NamedLoads.end()) { CodeGen::NamedLoads[target_name].second = r; return; }
 	else { CodeGen::Error(AST::CurrentIdentifier + " not found in AddInst()"); }
@@ -558,7 +614,7 @@ llvm::Value* AST::Add::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	L = GetPHI(target_name, Target->codegen(), L);
+	L = GetPHI(target_name, GetCoreInst(Target.get(), target_name), L);
 
 	if (IsIntegerType(L) && IsIntegerType(R))
 	{
@@ -587,7 +643,7 @@ llvm::Value* AST::Sub::codegen()
 
 	llvm::Value* Result = nullptr;
 
-	L = GetPHI(target_name, Target->codegen(), L);
+	L = GetPHI(target_name, GetCoreInst(Target.get(), target_name), L);
 
 	if (IsIntegerType(L) && IsIntegerType(R))
 	{
@@ -702,8 +758,8 @@ std::map<std::string, llvm::Value*> get_entry_values(std::string m = "") {
 
 	std::map<std::string, llvm::Value*> r;
 
-	MAP_FOREACH(std::string, llvm::Value*, CodeGen::NamedPures, it) {
-		if(it->second != nullptr) { r[it->first] = it->second; }
+	MAP_FOREACH_PAIR(std::string, llvm::Value*, llvm::Value*, CodeGen::NamedPures, it) {
+		if(it->second.second != nullptr) { r[it->first] = it->second.second; }
 	}
 
 	MAP_FOREACH_PAIR(std::string, llvm::Argument*, llvm::Value*, CodeGen::NamedArguments, it2) {
@@ -726,7 +782,7 @@ void set_entry_values(std::map<std::string, llvm::Value*> r) {
 	MAP_FOREACH(std::string, llvm::Value*, r, it) {
 
 		if(CodeGen::NamedPures.find(it->first) != CodeGen::NamedPures.end())
-			CodeGen::NamedPures[it->first] = it->second;
+			CodeGen::NamedPures[it->first].second = it->second;
 
 		else if(CodeGen::NamedArguments.find(it->first) != CodeGen::NamedArguments.end())
 			CodeGen::NamedArguments[it->first].second = it->second;
@@ -808,8 +864,8 @@ void ifelse_set_phis(
 	MAP_FOREACH(std::string, llvm::Value*, l, it) {
 
 		if(CodeGen::NamedPures.find(it->first) != CodeGen::NamedPures.end()) {
-			auto p = generate_individual_ifelse_phi(l[it->first], r[it->first], CodeGen::NamedPures[it->first], FirstBB, SecondBB);
-			CodeGen::NamedPures[it->first] = p;
+			auto p = generate_individual_ifelse_phi(l[it->first], r[it->first], CodeGen::NamedPures[it->first].second, FirstBB, SecondBB);
+			CodeGen::NamedPures[it->first].second = p;
 		}
 
 		else if(CodeGen::NamedArguments.find(it->first) != CodeGen::NamedArguments.end()) {
@@ -887,67 +943,6 @@ llvm::Value* AST::If::codegen()
 	return nullptr;
 }
 
-llvm::Value* BlockCodegen(AST::Expression* i, llvm::BasicBlock* begin, llvm::BasicBlock* current, llvm::Value* inst)
-{
-	if(AST::Add* a = dynamic_cast<AST::Add*>(i))
-	{
-		//if(!dynamic_cast<AST::Load*>(a->Target.get()))
-		//	return i->codegen();
-
-		auto T = GetInst(a->Target.get(), false)->getType();
-		std::string target_name = AST::CurrentIdentifier;
-
-		auto phi = CodeGen::Builder->CreatePHI(T, 2, "phi");
-
-		llvm::Value* c = CodeGen::Builder->CreateAdd(phi, GetInst(a->Value.get(), false), "addtmp");
-
-		inst = c;
-
-		if(llvm::Instruction* llvmC = dyn_cast<llvm::Instruction>(c))
-			llvmC->eraseFromParent();
-
-		phi->addIncoming(c, current);
-		phi->addIncoming(a->Target->codegen(), begin);
-
-		AddInst(target_name, c);
-		AST::CurrInst = c;
-
-		AddPHILoad(target_name, begin, current);
-
-		return phi;
-	}
-
-	if(AST::Sub* a = dynamic_cast<AST::Sub*>(i))
-	{
-		//if(!dynamic_cast<AST::Load*>(a->Target.get()))
-		//	return i->codegen();
-
-		auto T = GetInst(a->Target.get(), false)->getType();
-		std::string target_name = AST::CurrentIdentifier;
-
-		auto phi = CodeGen::Builder->CreatePHI(T, 2, "phi");
-
-		llvm::Value* c = CodeGen::Builder->CreateSub(phi, GetInst(a->Value.get(), false), "subtmp");
-
-		inst = c;
-
-		llvm::Instruction* llvmC = dyn_cast<llvm::Instruction>(c);
-		if(llvmC) { llvmC->eraseFromParent(); }
-
-		phi->addIncoming(c, current);
-		phi->addIncoming(a->Target->codegen(), begin);
-
-		AddInst(target_name, c);
-		AST::CurrInst = c;
-
-		AddPHILoad(target_name, begin, current);
-
-		return phi;
-	}
-
-	return i->codegen();
-}
-
 std::pair<NucleusPHI, AST::Expression*> GetLoopPHI(AST::Expression* i, llvm::BasicBlock* begin, llvm::BasicBlock* current)
 {
 	NucleusPHI p;
@@ -964,17 +959,15 @@ std::pair<NucleusPHI, AST::Expression*> GetLoopPHI(AST::Expression* i, llvm::Bas
 	if(AST::Add* a = dynamic_cast<AST::Add*>(i))
 	{
 		target = a->Target.get();
-
 		T = GetInst(a->Target.get(), false)->getType();
-		target_name = AST::CurrentIdentifier;
 	}
 	else if(AST::Sub* s = dynamic_cast<AST::Sub*>(i))
 	{
 		target = s->Target.get();
-
 		T = GetInst(s->Target.get(), false)->getType();
-		target_name = AST::CurrentIdentifier;
 	}
+
+	target_name = AST::CurrentIdentifier;
 
 	auto phi = CodeGen::Builder->CreatePHI(T, 2, "phi");
 
@@ -1011,12 +1004,23 @@ ARGUMENT_LIST() generate_block_codegen(ARGUMENT_LIST() Body, llvm::BasicBlock* E
 	{
 		if(phiRelated.find(i) != phiRelated.end())
 		{
-			AddInst(phiRelated[i].first.target_name, phiRelated[i].first.phi);
+			//auto valf = phiRelated[i].second->codegen();
 
-			auto c = phiRelated[i].second->codegen();
+			//if(valf->getName() == "" || valf->getName() == phiRelated[i].first.phi->getName())
+			//{
+				auto final_t = GetInst(phiRelated[i].first.target);
 
-			phiRelated[i].first.phi->addIncoming(c, phiRelated[i].first.current);
-			phiRelated[i].first.phi->addIncoming(phiRelated[i].first.target->codegen(), phiRelated[i].first.begin);
+				AddInst(phiRelated[i].first.target_name, phiRelated[i].first.phi);
+
+				auto c = phiRelated[i].second->codegen();
+
+				phiRelated[i].first.phi->addIncoming(c, phiRelated[i].first.current);
+				phiRelated[i].first.phi->addIncoming(final_t, phiRelated[i].first.begin);
+			//}
+			//else
+			//{
+			//	phiRelated[i].first.phi->eraseFromParent();
+			//}
 		}
 		else if(instructions.find(i) != instructions.end())
 			instructions[i]->codegen();
@@ -1058,7 +1062,9 @@ llvm::Value* AST::Loop::codegen()
 llvm::Value* AST::Pure::codegen()
 {
 	auto R = Inst->codegen();
-	CodeGen::NamedPures[Name] = R;
+	//AST::CurrentIdentifier = Name;
+	
+	CodeGen::NamedPures[Name] = std::make_pair(R, R);
 
 	return R;
 }
@@ -1068,8 +1074,6 @@ std::unique_ptr<AST::Expression> apply_get_element_safety_checks(std::unique_ptr
 	auto compare_v = std::make_unique<AST::Compare>(std::move(number), std::move(limit), 1);
 
 	llvm::Value* ConditionV = compare_v->codegen();
-
-	number = std::move(compare_v->A);
 
 	std::string bool_result;
 	llvm::raw_string_ostream rslt(bool_result);
@@ -1082,26 +1086,21 @@ std::unique_ptr<AST::Expression> apply_get_element_safety_checks(std::unique_ptr
 		exit(1);
 	}
 
-	llvm::Function *TheFunction = CodeGen::Builder->GetInsertBlock()->getParent();
-
-	llvm::BasicBlock* IfBlock = 		llvm::BasicBlock::Create(*CodeGen::TheContext, "if", TheFunction);
-	llvm::BasicBlock* ContinueBlock = 	llvm::BasicBlock::Create(*CodeGen::TheContext, "continue");
-
-	CodeGen::Builder->CreateCondBr(ConditionV, IfBlock, ContinueBlock);
-
-	CodeGen::Builder->SetInsertPoint(IfBlock);
+	ARGUMENT_LIST() IfBody;
+	ARGUMENT_LIST() ElseBody;
 
 	auto exit_v = std::make_unique<AST::Number>("1");
 	exit_v->bit = 32;
 
 	auto exit_call = std::make_unique<AST::Exit>(std::move(exit_v));
 
-	exit_call->codegen();
+	IfBody.push_back(std::move(exit_call));
 
-	CodeGen::Builder->CreateBr(ContinueBlock);
+	auto if_b = std::make_unique<AST::If>(std::move(compare_v), std::move(IfBody), std::move(ElseBody));
 
-	TheFunction->getBasicBlockList().push_back(ContinueBlock);
-	CodeGen::Builder->SetInsertPoint(ContinueBlock);
+	if_b->codegen();
+
+	number = std::move(if_b->Condition);
 
 	return std::move(number);
 }
