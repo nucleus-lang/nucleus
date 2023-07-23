@@ -16,6 +16,7 @@ std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> CodeGen::NamedLo
 std::map<std::string, std::pair<llvm::Value*, llvm::Value*>> CodeGen::NamedPures;
 std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> CodeGen::NamedPHILoads;
 std::map<std::string, std::pair<llvm::Argument*, llvm::Value*>> CodeGen::NamedArguments;
+std::vector<std::pair<llvm::PHINode*, llvm::BasicBlock*>> CodeGen::all_internal_phis;
 std::map<std::string, llvm::Value*> CodeGen::CurrentInst;
 
 std::vector<llvm::BasicBlock*> CodeGen::allBasicBlocks;

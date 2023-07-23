@@ -58,6 +58,8 @@ struct CodeGen
 	static std::map<std::string, std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> NamedPHILoads;
 	static std::map<std::string, std::pair<llvm::Argument*, llvm::Value*>> NamedArguments;
 
+	static std::vector<std::pair<llvm::PHINode*, llvm::BasicBlock*>> all_internal_phis;
+
 	static std::vector<llvm::BasicBlock*> allBasicBlocks;
 
 	static std::map<std::string, llvm::Value*> CurrentInst;
