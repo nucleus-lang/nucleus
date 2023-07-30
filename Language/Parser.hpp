@@ -1149,6 +1149,11 @@ struct Parser
 
 		auto T = ParseType();
 
+		if(check_if_is_array(T.get()))
+		{
+			add_to_array_list(Name, T.get());
+		}
+
 		add_to_loads_list(Name, Lexer::IdentifierStr);
 
 		Lexer::GetNextToken();

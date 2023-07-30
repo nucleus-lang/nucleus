@@ -449,6 +449,16 @@ llvm::Value* AST::Alloca::codegen()
 llvm::Value* AST::Store::codegen()
 {
 	Target->GetPointer();
+
+	auto N = GetInst(Value.get());
+
+	if(N->getType()->isIntegerTy())
+	{
+		auto C = CodeGen::Builder->CreateIntCast(GetInst(Value.get()), GetInst(Target.get())->getType(), true);
+
+		return CodeGen::Builder->CreateStore(C, Target->codegen());
+	}
+
 	return CodeGen::Builder->CreateStore(GetInst(Value.get()), Target->codegen());
 }
 
