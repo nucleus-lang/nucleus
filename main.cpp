@@ -53,12 +53,28 @@ int main(int argc, char const *argv[])
 		}
 		else if (cmd == "emit")
 		{
+			if(argc > 2) {
+				std::string cmd_two = argv[2];
+
+				if(cmd_two == "release") {
+					CodeGen::is_release = true;
+				}
+			}
+			
 			CompileToLLVMIR();
 			CodeGen::Print();
 			TodoList::print();
 		}
 		else if (cmd == "build")
 		{
+			if(argc > 2) {
+				std::string cmd_two = argv[2];
+
+				if(cmd_two == "release") {
+					CodeGen::is_release = true;
+				}
+			}
+
 			CompileToLLVMIR();
 			TodoList::print();
 			CodeGen::Build();

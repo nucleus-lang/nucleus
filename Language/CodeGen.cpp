@@ -10,6 +10,9 @@
 std::unique_ptr<llvm::LLVMContext> CodeGen::TheContext;
 std::unique_ptr<llvm::IRBuilder<>> CodeGen::Builder;
 std::unique_ptr<llvm::Module> CodeGen::TheModule;
+std::unique_ptr<llvm::legacy::FunctionPassManager> CodeGen::TheFPM;
+
+bool CodeGen::is_release = false;
 
 std::map<std::string, llvm::Value*> CodeGen::NamedValues;
 std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> CodeGen::NamedLoads;
@@ -53,7 +56,14 @@ void CodeGen::Initialize()
  	 // Create a new builder for the module.
  	Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
- 	//TheFPM = std::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+ 	TheFPM = std::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+
+ 	if(is_release) {
+ 		TheFPM->add(llvm::createInstructionCombiningPass());
+ 	}
+ 	//TheFPM->add(llvm::createPartialInliningPass());
+
+ 	TheFPM->doInitialization();
 }
 
 void CodeGen::Error(std::string str)

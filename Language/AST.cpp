@@ -21,14 +21,11 @@ bool AST::is_inside_atom = false;
 
 std::unordered_map<std::string, AST::Type*> all_array_ptrs;
 
-llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
+std::string GetName(AST::Expression* T);
+
+llvm::Value* GetInstNoCatch(AST::Expression* v, bool enable_phi = true)
 {
-	llvm::Value* r = v->codegen();
-
-	if (r == nullptr) CodeGen::Error("r is nullptr");
-
-	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v) || dynamic_cast<AST::Data*>(v)) return r;
-
+	AST::CurrentIdentifier = GetName(v);
 	if (CodeGen::NamedPures.find(AST::CurrentIdentifier) != CodeGen::NamedPures.end())
 	{
 		if (CodeGen::NamedPures[AST::CurrentIdentifier].second != nullptr)
@@ -55,7 +52,25 @@ llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
 		}
 	}
 
+	llvm::Value* r = v->codegen();
+
+	if (r == nullptr) { return r; }
+
+	if (dynamic_cast<AST::Number*>(v) || dynamic_cast<AST::Call*>(v) || dynamic_cast<AST::Data*>(v)) return r;
+
 	return CreateAutoLoad(v, r);
+}
+
+llvm::Value* GetInst(AST::Expression* v, bool enable_phi = true)
+{
+	auto i = GetInstNoCatch(v, enable_phi);
+
+	if(i == nullptr)
+	{
+		CodeGen::Error("i is nullptr");
+	}
+
+	return i;
 }
 
 llvm::Value* GetCoreInst(AST::Expression* v, std::string name)
@@ -429,9 +444,11 @@ llvm::Value* AST::Alloca::codegen()
 
 	llvm::Value* Alloca = nullptr;
 
-	Alloca = CodeGen::Builder->CreateAlloca(T->codegen(), 0, VarName.c_str());
+	auto TC = T->codegen();
 
-	if(dyn_cast<llvm::PointerType>(T->codegen()) && dynamic_cast<AST::Array*>(T.get()))
+	Alloca = CodeGen::Builder->CreateAlloca(TC, 0, VarName.c_str());
+
+	if(dyn_cast<llvm::PointerType>(TC) && dynamic_cast<AST::Array*>(T.get()))
 	{
 		auto A = dynamic_cast<AST::Array*>(T.get());
 		all_array_ptrs[VarName] = A->childType.get();
@@ -454,12 +471,12 @@ llvm::Value* AST::Store::codegen()
 
 	if(N->getType()->isIntegerTy())
 	{
-		auto C = CodeGen::Builder->CreateIntCast(GetInst(Value.get()), GetInst(Target.get())->getType(), true);
+		auto C = CodeGen::Builder->CreateIntCast(N, GetInst(Target.get())->getType(), true);
 
 		return CodeGen::Builder->CreateStore(C, Target->codegen());
 	}
 
-	return CodeGen::Builder->CreateStore(GetInst(Value.get()), Target->codegen());
+	return CodeGen::Builder->CreateStore(N, Target->codegen());
 }
 
 bool IsIntegerType(llvm::Value* V)
@@ -639,6 +656,26 @@ std::string GetName(AST::Expression* T)
 	{
 		AST::Variable* V = dynamic_cast<AST::Variable*>(T);
 		return V->Name;
+	}
+	else if (dynamic_cast<AST::Alloca*>(T))
+	{
+		AST::Alloca* V = dynamic_cast<AST::Alloca*>(T);
+		return V->VarName;
+	}
+	else if (dynamic_cast<AST::Load*>(T))
+	{
+		AST::Load* V = dynamic_cast<AST::Load*>(T);
+		return V->Name;
+	}
+	else if (dynamic_cast<AST::Pure*>(T))
+	{
+		AST::Pure* V = dynamic_cast<AST::Pure*>(T);
+		return V->Name;
+	}
+	else if (dynamic_cast<AST::GetElement*>(T))
+	{
+		AST::GetElement* V = dynamic_cast<AST::GetElement*>(T);
+		return V->GetElementName;
 	}
 
 	return "";
@@ -1026,14 +1063,14 @@ ARGUMENT_LIST() generate_block_codegen(ARGUMENT_LIST() Body, llvm::BasicBlock* E
 		{
 			if(l.first == i)
 			{
-				auto c = phiRelated[l.second].second->codegen(); VERIFY(c)
+				auto c = GetInst(phiRelated[l.second].second); VERIFY(c)
 				phiRelated[l.second].first.phi->setIncomingValue(0, c);
 				is_linked = true;
 			}
 		}
 
 		if(!is_linked) {
-			instructions[i]->codegen();
+			auto igi = GetInstNoCatch(instructions[i]);
 		}
 	}
 
@@ -1060,7 +1097,7 @@ llvm::Value* AST::Loop::codegen()
 
 	Body = generate_block_codegen(std::move(Body), EntryBlock, LoopBlock);
 
-	llvm::Value* ConditionV2 = Condition->codegen();
+	llvm::Value* ConditionV2 = GetInst(Condition.get());
 
 	CodeGen::Builder->CreateCondBr(ConditionV2, LoopBlock, ContinueBlock);
 
@@ -1373,6 +1410,8 @@ llvm::Function* AST::Function::apply_attributes(llvm::Function* f) {
 	if(!attributes.prints_exceptions_at_runtime)	{ f->addFnAttr(llvm::Attribute::NoUnwind); }
 	if(attributes.must_progress)					{ f->addFnAttr(llvm::Attribute::MustProgress); }
 
+	f->addFnAttr(llvm::Attribute::AlwaysInline);
+
 	if(attributes.calling_convention == "GLASGOW_HASKELL") 		{ f->setCallingConv(llvm::CallingConv::GHC); }
 	else if(attributes.calling_convention == "TAIL") 			{ f->setCallingConv(llvm::CallingConv::Tail); }
 
@@ -1440,6 +1479,8 @@ llvm::Function* AST::Function::codegen()
 	}
 
 	TheFunction = apply_attributes(TheFunction);
+
+	CodeGen::TheFPM->run(*TheFunction);
 
 	return TheFunction;
 }

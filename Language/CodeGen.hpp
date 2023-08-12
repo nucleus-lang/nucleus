@@ -51,6 +51,9 @@ struct CodeGen
 	static std::unique_ptr<llvm::LLVMContext> TheContext;
 	static std::unique_ptr<llvm::IRBuilder<>> Builder;
 	static std::unique_ptr<llvm::Module> TheModule;
+	static std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
+
+	static bool is_release;
 
 	static std::map<std::string, llvm::Value*> NamedValues;
 	static std::map<std::string, std::pair<llvm::LoadInst*, llvm::Value*>> NamedLoads;
