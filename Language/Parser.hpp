@@ -522,7 +522,8 @@ struct Parser
 				auto Expr = ParseExpression();
 				Expr->dont_share_history = true;
 
-				// AUTO-PURIFIER MY BELOVED <3
+				// AUTO-PURIFIER MY BELOVED <3+
+				// Update: Don't use this all the time, specially for heavy memory usage.
 
 				std::string title = "autoPure" + std::to_string(Parser::random_global_id);
 				Parser::random_global_id++;
@@ -549,8 +550,23 @@ struct Parser
 					}
 				}
 
-				inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::move(T), std::move(Expr)));
-				currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
+				if(VE)
+				{
+					auto new_variable = std::make_unique<AST::Variable>(nullptr, VE->Name);
+					currentArgs.push_back(std::move(new_variable));
+
+					if(check_if_is_in_array_list(VE->Name))
+					{
+						if(a->amount - 1 != -1)
+							inst_before_arg.push_back(std::make_unique<AST::Pure>(VE->Name + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
+
+						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, VE->Name + "_length"));
+					}
+				}
+				else {
+					inst_before_arg.push_back(std::make_unique<AST::Pure>(title, std::move(T), std::move(Expr)));
+					currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title));
+				}
 
 				if(DE)
 				{
@@ -560,17 +576,6 @@ struct Parser
 					{
 						inst_before_arg.push_back(std::make_unique<AST::Pure>(title + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(DE_L->items.size() - 1))));
 						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, title + "_length"));
-					}
-				}
-
-				if(VE)
-				{
-					if(check_if_is_in_array_list(VE->Name))
-					{
-						if(a->amount - 1 != -1)
-							inst_before_arg.push_back(std::make_unique<AST::Pure>(VE->Name + "_length", std::make_unique<AST::i32>(), std::make_unique<AST::Number>(std::to_string(a->amount - 1))));
-
-						currentArgs.push_back(std::make_unique<AST::Variable>(nullptr, VE->Name + "_length"));
 					}
 				}
 
@@ -593,6 +598,7 @@ struct Parser
 			return std::make_unique<AST::Call>(IdName, std::move(currentArgs), std::move(inst_before_arg));
 		}
 
+		ResetTarget();
 		SetIdentToMainTarget(IdName);
 
 		return std::make_unique<AST::Variable>(nullptr, IdName);

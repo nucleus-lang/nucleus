@@ -48,7 +48,14 @@ llvm::Value* GetInstNoCatch(AST::Expression* v, bool enable_phi = true)
 	{
 		if (CodeGen::NamedLoads[AST::CurrentIdentifier].second != nullptr)
 		{
-			return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
+			if(!CodeGen::NamedLoads[AST::CurrentIdentifier].second->getType()->isPointerTy())
+			{
+				return CodeGen::NamedLoads[AST::CurrentIdentifier].second;
+			}
+			else
+			{
+				CodeGen::Error("Pointer found!");
+			}
 		}
 	}
 
@@ -242,8 +249,12 @@ llvm::Value* AST::Call::codegen()
 	for (unsigned i = 0, e = Args.size(); i != e; ++i) {
 		llvm::Value* argCG = GetInst(Args[i].get());
 
-		if(argCG == nullptr)
+		if(argCG == nullptr) {
 			argCG = Args[i]->codegen();
+		}
+		else if(isa<llvm::ArrayType>(argCG->getType())) {
+			argCG = Args[i]->codegen();
+		}
 
 		if(!argCG) { CodeGen::Error("One of the Arguments in " + Callee + " is nullptr in the codegen.\n"); }
 
@@ -501,7 +512,7 @@ llvm::Value* CreateAutoLoad(AST::Expression* v, llvm::Value* r)
 	else return getV;
 
 	auto L = CodeGen::Builder->CreateLoad(TV, getV, getV->getName());
-	CodeGen::NamedLoads[AST::CurrentIdentifier] = std::make_pair(L, nullptr);
+	CodeGen::NamedLoads[GetName(v)] = std::make_pair(L, nullptr);
 
 	return L;
 }
@@ -1208,7 +1219,7 @@ llvm::Value* AST::GetElement::codegen()
 		AST::Type* T = nullptr;
 
 		if(all_array_ptrs.find(getName) == all_array_ptrs.end())
-			CodeGen::Error("'T' is not found or is nullptr.");
+			CodeGen::Error("'" + getName + "' is not found or is nullptr.");
 
 		T = all_array_ptrs[getName];
 
@@ -1350,7 +1361,7 @@ llvm::Value* AST::IntCast::codegen()
 {
 	llvm::Value* target_cg = GetInst(target.get());
 
-	return CodeGen::Builder->CreateIntCast(target_cg, convert_to_type->codegen(), !convert_to_type->is_unsigned);
+	return CodeGen::Builder->CreateIntCast(target_cg, convert_to_type->codegen(), !convert_to_type->is_unsigned, "int_cast");
 }
 
 llvm::Value* AST::Data::codegen()
